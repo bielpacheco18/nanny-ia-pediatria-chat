@@ -12,8 +12,8 @@ export class OpenAIService {
 
   constructor() {
     this.pdfService = PDFService.getInstance();
-    // Em produção, a chave seria obtida de variáveis de ambiente
-    this.apiKey = process.env.REACT_APP_OPENAI_API_KEY || null;
+    // Em Vite, use import.meta.env ao invés de process.env
+    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || null;
   }
 
   setApiKey(key: string) {
