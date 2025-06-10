@@ -30,6 +30,7 @@ export class OpenAIService {
 
   async getKnowledgeBaseFromSupabase(): Promise<string> {
     try {
+      console.log('Fetching knowledge base from Supabase...');
       const { data: knowledgeBase, error } = await supabase
         .from('knowledge_base')
         .select('title, content')
@@ -40,13 +41,21 @@ export class OpenAIService {
         return '';
       }
 
+      console.log('Knowledge base data:', knowledgeBase);
+      console.log('Number of documents found:', knowledgeBase?.length || 0);
+
       if (!knowledgeBase || knowledgeBase.length === 0) {
+        console.log('No processed documents found in knowledge base');
         return '';
       }
 
-      return knowledgeBase
-        .map(item => `${item.title}\n${item.content}`)
+      const combinedContent = knowledgeBase
+        .filter(item => item.content && item.content.trim().length > 0)
+        .map(item => `Título: ${item.title}\n\nConteúdo:\n${item.content}`)
         .join('\n\n---\n\n');
+
+      console.log('Combined content length:', combinedContent.length);
+      return combinedContent;
     } catch (error) {
       console.error('Error accessing Supabase:', error);
       return '';
@@ -54,32 +63,39 @@ export class OpenAIService {
   }
 
   async generateResponse(userMessage: string, conversationHistory: ChatMessage[] = []): Promise<string> {
-    // Se não há chave da API, usar respostas simuladas
+    console.log('Generating response for:', userMessage);
+    
+    // Buscar base de conhecimento primeiro
+    const knowledgeBase = await this.getKnowledgeBaseFromSupabase();
+    console.log('Knowledge base available:', knowledgeBase.length > 0);
+    
+    // Se não há chave da API, usar respostas baseadas na base de conhecimento
     if (!this.apiKey) {
-      console.log('Using simulated response - no API key');
-      return this.generateSimulatedResponse(userMessage);
+      console.log('Using knowledge-based response - no API key');
+      return this.generateKnowledgeBasedResponse(userMessage, knowledgeBase);
     }
 
     try {
-      const knowledgeBase = await this.getKnowledgeBaseFromSupabase();
-      
-      const systemPrompt = `Você é a Nanny, uma pediatra virtual acolhedora e empática. 
+      const systemPrompt = `Você é a Nanny, uma pediatra virtual acolhedora e empática especializada em cuidados infantis. 
 
 PERSONA: Você é calorosa, compreensiva e sempre valida os sentimentos dos pais. Use expressões como "Respira comigo", "Isso não é frescura", "Vamos juntas descobrir". Seja técnica quando necessário, mas sempre de forma acessível.
 
-BASE DE CONHECIMENTO:
+IMPORTANTE: Baseie suas respostas EXCLUSIVAMENTE nas informações médicas e pediátricas fornecidas abaixo. Se a informação específica não estiver disponível no conteúdo fornecido, diga que precisa de mais informações para dar uma orientação específica.
+
+BASE DE CONHECIMENTO MÉDICO:
 ${knowledgeBase}
 
-INSTRUÇÕES:
-- Responda com base na informação fornecida na base de conhecimento
+INSTRUÇÕES IMPORTANTES:
+- Responda APENAS com base nas informações médicas fornecidas acima
 - NUNCA mencione "base de conhecimento", "documentos", "materiais" ou "PDFs" em suas respostas
-- Responda como se fosse seu conhecimento médico natural
-- Se a informação não estiver disponível, diga que precisa de mais informações para dar uma orientação específica
+- Responda como se fosse seu conhecimento médico natural e experiência como pediatra
+- Se a informação específica não estiver disponível no conteúdo médico fornecido, seja honesta e diga que precisa de mais detalhes
 - Seja empática e acolhedora no tom
-- Mantenha o foco em orientações pediátricas
+- Mantenha o foco em orientações pediátricas baseadas no conteúdo médico disponível
 - Se for uma emergência, sempre oriente a procurar ajuda médica imediata
+- Use o conteúdo médico fornecido para dar respostas específicas e detalhadas
 
-IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempre oriente a buscar um pediatra presencialmente.`;
+LEMBRETE: Você é um apoio educativo baseado em conhecimento médico específico. Em casos sérios ou emergências, sempre oriente a buscar um pediatra presencialmente.`;
 
       const messages: ChatMessage[] = [
         { role: 'system', content: systemPrompt },
@@ -87,6 +103,7 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
         { role: 'user', content: userMessage }
       ];
 
+      console.log('Sending request to OpenAI...');
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -106,26 +123,25 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
       }
 
       const data = await response.json();
-      return data.choices[0]?.message?.content || 'Desculpe, não consegui gerar uma resposta no momento.';
+      const aiResponse = data.choices[0]?.message?.content || 'Desculpe, não consegui gerar uma resposta no momento.';
+      console.log('OpenAI response received');
+      return aiResponse;
     } catch (error) {
       console.error('Erro ao chamar OpenAI:', error);
-      return this.generateSimulatedResponse(userMessage);
+      return this.generateKnowledgeBasedResponse(userMessage, knowledgeBase);
     }
   }
 
-  private async generateSimulatedResponse(userMessage: string): Promise<string> {
+  private async generateKnowledgeBasedResponse(userMessage: string, knowledgeBase: string): Promise<string> {
     const lowerMessage = userMessage.toLowerCase();
-    
-    // Buscar conteúdo da base de conhecimento do Supabase
-    const knowledgeBase = await this.getKnowledgeBaseFromSupabase();
-    const hasKnowledge = knowledgeBase && knowledgeBase.trim().length > 0;
-    
-    console.log('Knowledge base available:', hasKnowledge);
+    console.log('Generating knowledge-based response...');
     console.log('Knowledge base content length:', knowledgeBase?.length || 0);
     console.log('User message:', userMessage);
     
     // Se há base de conhecimento, procurar informações relevantes
-    if (hasKnowledge) {
+    if (knowledgeBase && knowledgeBase.trim().length > 0) {
+      console.log('Using knowledge base for response');
+      
       // Buscar por palavras-chave na base de conhecimento
       const knowledgeWords = knowledgeBase.toLowerCase();
       
@@ -150,32 +166,46 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
         if (relevantSentences.length > 0) {
           // Usar as informações relevantes para construir uma resposta
           const info = relevantSentences.slice(0, 3).join('. ').trim();
-          return `${info}. Lembre-se que cada bebê é único e pode ter variações. Se tiver dúvidas específicas sobre seu pequeno, sempre consulte seu pediatra de confiança. Você está fazendo um ótimo trabalho! 💜`;
+          return `Com base no meu conhecimento médico: ${info}. Lembre-se que cada criança é única e pode ter variações. Se tiver dúvidas específicas sobre seu pequeno, sempre consulte seu pediatra de confiança. Você está fazendo um ótimo trabalho! 💜`;
         }
       }
       
       // Respostas específicas baseadas no conhecimento disponível
       if (lowerMessage.includes('febre')) {
-        return 'Sobre febre infantil: é importante monitorar a temperatura e o comportamento geral do bebê. Temperaturas persistentes ou muito altas, especialmente em bebês pequenos, merecem atenção médica. Respira comigo - você está cuidando bem do seu bebê. Para orientações específicas sobre o seu caso, consulte seu pediatra.';
+        const feverInfo = knowledgeBase.toLowerCase().includes('febre') ? 
+          knowledgeBase.split(/[.!?]+/).filter(s => s.toLowerCase().includes('febre')).slice(0, 2).join('. ') : '';
+        if (feverInfo) {
+          return `Sobre febre infantil: ${feverInfo}. Respira comigo - você está cuidando bem do seu bebê. Para orientações específicas sobre o seu caso, consulte seu pediatra.`;
+        }
       }
       
       if (lowerMessage.includes('amament') || lowerMessage.includes('leite')) {
-        return 'A amamentação é uma jornada única para cada dupla mãe-bebê. É normal ter desafios e dúvidas no processo. O importante é que tanto você quanto seu bebê estejam bem. Se precisar de apoio específico, procure orientação profissional. Isso não é frescura - você está fazendo o melhor para seu pequeno! 💜';
+        const breastfeedingInfo = knowledgeBase.toLowerCase().includes('amament') ? 
+          knowledgeBase.split(/[.!?]+/).filter(s => s.toLowerCase().includes('amament')).slice(0, 2).join('. ') : '';
+        if (breastfeedingInfo) {
+          return `Sobre amamentação: ${breastfeedingInfo}. Isso não é frescura - você está fazendo o melhor para seu pequeno! 💜`;
+        }
       }
       
       if (lowerMessage.includes('sono') || lowerMessage.includes('dormir')) {
-        return 'O sono dos bebês pode ser um desafio real para as famílias. Cada bebê tem seu próprio ritmo e isso vai se organizando com o tempo. Estabelecer rotinas suaves pode ajudar gradualmente. Respira comigo - essa fase passa e vocês vão encontrar o equilíbrio. Para dicas específicas sobre seu bebê, converse com seu pediatra.';
+        const sleepInfo = knowledgeBase.toLowerCase().includes('sono') ? 
+          knowledgeBase.split(/[.!?]+/).filter(s => s.toLowerCase().includes('sono')).slice(0, 2).join('. ') : '';
+        if (sleepInfo) {
+          return `Sobre o sono dos bebês: ${sleepInfo}. Respira comigo - essa fase passa e vocês vão encontrar o equilíbrio. 💜`;
+        }
       }
       
       // Resposta geral quando há base de conhecimento mas não é específica
-      return `Com base no meu conhecimento pediátrico, posso te ajudar com essa questão. Para te dar uma orientação mais precisa e personalizada para seu bebê, seria importante conversar sobre mais detalhes da situação. Cada criança é única e merece cuidado individualizado. Você está fazendo um trabalho incrível! 💜`;
+      const generalInfo = knowledgeBase.split(/[.!?]+/).slice(0, 2).join('. ').trim();
+      return `Com base no meu conhecimento pediátrico: ${generalInfo}. Para te dar uma orientação mais precisa e personalizada para seu bebê, seria importante conversar sobre mais detalhes da situação. Cada criança é única e merece cuidado individualizado. Você está fazendo um trabalho incrível! 💜`;
     }
     
     // Se não há base de conhecimento, resposta padrão
+    console.log('No knowledge base available, using default response');
     if (lowerMessage.includes('olá') || lowerMessage.includes('oi') || lowerMessage.includes('hello')) {
-      return 'Olá! Eu sou a Nanny, sua pediatra virtual. Estou aqui para te ajudar com questões sobre cuidados infantis. Como posso te apoiar hoje? 💜';
+      return 'Olá! Eu sou a Nanny, sua pediatra virtual. Estou aqui para te ajudar com questões sobre cuidados infantis baseado no conhecimento médico disponível. Como posso te apoiar hoje? 💜';
     }
     
-    return 'Ainda não tenho informações suficientes para responder de forma específica a essa questão. Te encorajo a adicionar materiais pediátricos na seção "Base de Conhecimento" para que eu possa te ajudar melhor. Para questões urgentes, sempre consulte seu pediatra. Você está fazendo um ótimo trabalho! 💜';
+    return 'Ainda não tenho informações médicas suficientes para responder de forma específica a essa questão. Te encorajo a adicionar materiais pediátricos na seção "Base de Conhecimento" para que eu possa te ajudar melhor com conhecimento médico especializado. Para questões urgentes, sempre consulte seu pediatra. Você está fazendo um ótimo trabalho! 💜';
   }
 }
