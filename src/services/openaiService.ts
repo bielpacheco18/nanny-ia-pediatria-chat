@@ -49,10 +49,11 @@ BASE DE CONHECIMENTO:
 ${knowledgeBase}
 
 INSTRUÇÕES:
-- Responda APENAS com base na informação fornecida na base de conhecimento
-- Se a informação não estiver disponível, diga que precisa de mais informações na base de conhecimento
+- Responda com base na informação fornecida na base de conhecimento
+- NUNCA mencione "base de conhecimento", "documentos" ou "materiais" em suas respostas
+- Responda como se fosse seu conhecimento médico natural
+- Se a informação não estiver disponível, diga que precisa de mais informações para dar uma orientação específica
 - Seja empática e acolhedora no tom
-- Não cite fontes ou referências específicas
 - Mantenha o foco em orientações pediátricas
 - Se for uma emergência, sempre oriente a procurar ajuda médica imediata
 
@@ -104,35 +105,35 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
     if (hasKnowledge) {
       // Respostas baseadas na base de conhecimento simulada
       if (lowerMessage.includes('febre')) {
-        return 'Com base na nossa base de conhecimento: Temperaturas acima de 38°C em bebês menores de 3 meses requerem avaliação médica imediata. Respira comigo - vamos verificar outros sinais. O bebê está ativo? Está se alimentando bem? Para bebês maiores, observe o comportamento geral. Se há sinais de desconforto intenso, é importante buscar orientação médica.';
+        return 'Temperaturas acima de 38°C em bebês menores de 3 meses requerem avaliação médica imediata. Respira comigo - vamos verificar outros sinais. O bebê está ativo? Está se alimentando bem? Para bebês maiores, observe o comportamento geral. Se há sinais de desconforto intenso, é importante buscar orientação médica.';
       }
       
       if (lowerMessage.includes('amamentação') || lowerMessage.includes('amamentar')) {
-        return 'Segundo nossa base de conhecimento: O leite materno é o alimento ideal para bebês até os 6 meses de idade. É normal ter dúvidas - cada dupla mãe-bebê encontra seu ritmo único. A amamentação pode ser desafiadora no início, mas com paciência e apoio, vocês vão encontrar o caminho. Lembre-se: você está fazendo o melhor para seu bebê.';
+        return 'O leite materno é o alimento ideal para bebês até os 6 meses de idade. É normal ter dúvidas - cada dupla mãe-bebê encontra seu ritmo único. A amamentação pode ser desafiadora no início, mas com paciência e apoio, vocês vão encontrar o caminho. Lembre-se: você está fazendo o melhor para seu bebê.';
       }
       
       if (lowerMessage.includes('sono') || lowerMessage.includes('dormir')) {
-        return 'Nossa base de conhecimento indica que: Bebês recém-nascidos dormem entre 14-17 horas por dia em períodos de 2-4 horas. Isso é completamente normal! O sono fragmentado dos primeiros meses é uma fase que passa. Cada bebê tem seu próprio ritmo, e estabelecer uma rotina suave pode ajudar gradualmente.';
+        return 'Bebês recém-nascidos dormem entre 14-17 horas por dia em períodos de 2-4 horas. Isso é completamente normal! O sono fragmentado dos primeiros meses é uma fase que passa. Cada bebê tem seu próprio ritmo, e estabelecer uma rotina suave pode ajudar gradualmente.';
       }
       
       if (lowerMessage.includes('cólica')) {
-        return 'Baseado em nossa base de conhecimento: Cólicas são comuns nos primeiros 3 meses, caracterizadas por choro inconsolável por mais de 3 horas. Isso não é frescura - é uma fase difícil, mas passageira. Técnicas como massagem na barriguinha, posição canguru e compressa morna podem ajudar. O mais importante é manter a calma, pois o bebê sente nossa energia.';
+        return 'Cólicas são comuns nos primeiros 3 meses, caracterizadas por choro inconsolável por mais de 3 horas. Isso não é frescura - é uma fase difícil, mas passageira. Técnicas como massagem na barriguinha, posição canguru e compressa morna podem ajudar. O mais importante é manter a calma, pois o bebê sente nossa energia.';
       }
       
       if (lowerMessage.includes('desenvolvimento') || lowerMessage.includes('motor')) {
-        return 'Conforme nossa base de conhecimento: Bebês começam a sustentar a cabeça aos 2-3 meses. Cada bebê tem seu próprio ritmo de desenvolvimento, e isso é normal. O importante é oferecer estímulos adequados e observar os marcos de forma tranquila, sem pressão.';
+        return 'Bebês começam a sustentar a cabeça aos 2-3 meses. Cada bebê tem seu próprio ritmo de desenvolvimento, e isso é normal. O importante é oferecer estímulos adequados e observar os marcos de forma tranquila, sem pressão.';
       }
       
       if (lowerMessage.includes('vacina') || lowerMessage.includes('vacinação')) {
-        return 'Nossa base de conhecimento enfatiza que: Seguir o calendário nacional de vacinação é fundamental para a saúde infantil. As vacinas protegem seu bebê de doenças graves. É normal haver reações leves como febre baixa ou irritabilidade - isso mostra que o sistema imunológico está respondendo adequadamente.';
+        return 'Seguir o calendário nacional de vacinação é fundamental para a saúde infantil. As vacinas protegem seu bebê de doenças graves. É normal haver reações leves como febre baixa ou irritabilidade - isso mostra que o sistema imunológico está respondendo adequadamente.';
       }
       
       if (lowerMessage.includes('alimentação') || lowerMessage.includes('papinha')) {
-        return 'Segundo nossa base de conhecimento: A alimentação complementar deve ser introduzida a partir dos 6 meses. Até lá, o leite materno ou fórmula supre todas as necessidades nutricionais. Quando chegar a hora, ofereça alimentos variados e deixe o bebê explorar - é uma fase de descobertas!';
+        return 'A alimentação complementar deve ser introduzida a partir dos 6 meses. Até lá, o leite materno ou fórmula supre todas as necessidades nutricionais. Quando chegar a hora, ofereça alimentos variados e deixe o bebê explorar - é uma fase de descobertas!';
       }
       
-      // Para outras perguntas, tentar responder com base no conteúdo geral da base
-      return `Com base no que temos na nossa base de conhecimento, posso te ajudar com informações pediátricas. ${knowledgeBase.substring(0, 300)}... Para informações mais específicas sobre "${userMessage}", recomendo consultar seu pediatra. Lembre-se: você está fazendo um ótimo trabalho! 💜`;
+      // Para outras perguntas, dar uma resposta geral baseada no conhecimento
+      return `Posso te ajudar com essa questão pediátrica. Preciso de um pouco mais de detalhes sobre a situação para te dar uma orientação mais específica. Pode me contar mais sobre o que está acontecendo? Lembre-se: você está fazendo um ótimo trabalho! 💜`;
     }
     
     // Se não há base de conhecimento, dar respostas básicas de pediatria
@@ -149,6 +150,6 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
     }
     
     // Resposta padrão quando não há informação específica
-    return 'Entendo sua preocupação. Como ainda não tenho uma base de conhecimento específica carregada, recomendo que você faça upload de materiais pediátricos na seção "Base de Conhecimento" para que eu possa te dar respostas mais precisas. Enquanto isso, para questões urgentes, sempre consulte seu pediatra. Você está fazendo um ótimo trabalho! 💜';
+    return 'Para te dar uma orientação mais precisa, seria importante que você fizesse upload de materiais pediátricos na seção "Base de Conhecimento". Enquanto isso, para questões urgentes, sempre consulte seu pediatra. Você está fazendo um ótimo trabalho! 💜';
   }
 }
