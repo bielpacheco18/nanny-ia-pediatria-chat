@@ -1,5 +1,5 @@
 
-import { PDFService } from './pdfService';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -8,11 +8,8 @@ export interface ChatMessage {
 
 export class OpenAIService {
   private apiKey: string | null = null;
-  private pdfService: PDFService;
 
   constructor() {
-    this.pdfService = PDFService.getInstance();
-    
     // Debug log to check environment
     console.log('Checking environment variables...');
     console.log('import.meta.env:', import.meta.env);
@@ -31,6 +28,31 @@ export class OpenAIService {
     this.apiKey = key;
   }
 
+  async getKnowledgeBaseFromSupabase(): Promise<string> {
+    try {
+      const { data: knowledgeBase, error } = await supabase
+        .from('knowledge_base')
+        .select('title, content')
+        .eq('status', 'processed');
+
+      if (error) {
+        console.error('Error fetching knowledge base:', error);
+        return '';
+      }
+
+      if (!knowledgeBase || knowledgeBase.length === 0) {
+        return '';
+      }
+
+      return knowledgeBase
+        .map(item => `${item.title}\n${item.content}`)
+        .join('\n\n---\n\n');
+    } catch (error) {
+      console.error('Error accessing Supabase:', error);
+      return '';
+    }
+  }
+
   async generateResponse(userMessage: string, conversationHistory: ChatMessage[] = []): Promise<string> {
     // Se não há chave da API, usar respostas simuladas
     if (!this.apiKey) {
@@ -39,7 +61,7 @@ export class OpenAIService {
     }
 
     try {
-      const knowledgeBase = this.pdfService.getKnowledgeBase();
+      const knowledgeBase = await this.getKnowledgeBaseFromSupabase();
       
       const systemPrompt = `Você é a Nanny, uma pediatra virtual acolhedora e empática. 
 
@@ -50,7 +72,7 @@ ${knowledgeBase}
 
 INSTRUÇÕES:
 - Responda com base na informação fornecida na base de conhecimento
-- NUNCA mencione "base de conhecimento", "documentos" ou "materiais" em suas respostas
+- NUNCA mencione "base de conhecimento", "documentos", "materiais" ou "PDFs" em suas respostas
 - Responda como se fosse seu conhecimento médico natural
 - Se a informação não estiver disponível, diga que precisa de mais informações para dar uma orientação específica
 - Seja empática e acolhedora no tom
@@ -91,11 +113,11 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
     }
   }
 
-  private generateSimulatedResponse(userMessage: string): string {
+  private async generateSimulatedResponse(userMessage: string): Promise<string> {
     const lowerMessage = userMessage.toLowerCase();
     
-    // Verificar se há conteúdo na base de conhecimento
-    const knowledgeBase = this.pdfService.getKnowledgeBase();
+    // Buscar conteúdo da base de conhecimento do Supabase
+    const knowledgeBase = await this.getKnowledgeBaseFromSupabase();
     const hasKnowledge = knowledgeBase && knowledgeBase.trim().length > 0;
     
     console.log('Knowledge base available:', hasKnowledge);
@@ -132,7 +154,7 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
         }
       }
       
-      // Se não encontrou informações específicas mas há base de conhecimento
+      // Respostas específicas baseadas no conhecimento disponível
       if (lowerMessage.includes('febre')) {
         return 'Sobre febre infantil: é importante monitorar a temperatura e o comportamento geral do bebê. Temperaturas persistentes ou muito altas, especialmente em bebês pequenos, merecem atenção médica. Respira comigo - você está cuidando bem do seu bebê. Para orientações específicas sobre o seu caso, consulte seu pediatra.';
       }
@@ -146,7 +168,7 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
       }
       
       // Resposta geral quando há base de conhecimento mas não é específica
-      return `Com base nas informações que tenho, posso te ajudar com essa questão pediátrica. Para te dar uma orientação mais precisa e personalizada para seu bebê, seria importante conversar sobre mais detalhes da situação. Cada criança é única e merece cuidado individualizado. Você está fazendo um trabalho incrível! 💜`;
+      return `Com base no meu conhecimento pediátrico, posso te ajudar com essa questão. Para te dar uma orientação mais precisa e personalizada para seu bebê, seria importante conversar sobre mais detalhes da situação. Cada criança é única e merece cuidado individualizado. Você está fazendo um trabalho incrível! 💜`;
     }
     
     // Se não há base de conhecimento, resposta padrão
@@ -154,6 +176,6 @@ IMPORTANTE: Você é um apoio educativo. Em casos sérios ou emergências, sempr
       return 'Olá! Eu sou a Nanny, sua pediatra virtual. Estou aqui para te ajudar com questões sobre cuidados infantis. Como posso te apoiar hoje? 💜';
     }
     
-    return 'Ainda não tenho informações suficientes carregadas para responder de forma específica a essa questão. Te encorajo a fazer upload de materiais pediátricos na seção "Base de Conhecimento" para que eu possa te ajudar melhor. Para questões urgentes, sempre consulte seu pediatra. Você está fazendo um ótimo trabalho! 💜';
+    return 'Ainda não tenho informações suficientes para responder de forma específica a essa questão. Te encorajo a adicionar materiais pediátricos na seção "Base de Conhecimento" para que eu possa te ajudar melhor. Para questões urgentes, sempre consulte seu pediatra. Você está fazendo um ótimo trabalho! 💜';
   }
 }

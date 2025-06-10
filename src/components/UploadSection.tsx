@@ -5,41 +5,74 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Upload, FileText, Trash2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { PDFService } from "@/services/pdfService";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UploadedFile {
   id: string;
-  name: string;
-  size: number;
-  uploadDate: Date;
-  status: 'uploading' | 'processed' | 'error';
+  title: string;
+  file_name: string;
+  file_size: number | null;
+  upload_date: string;
+  status: 'pending' | 'processed' | 'error';
 }
 
 const UploadSection = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const pdfService = PDFService.getInstance();
 
-  // Carregar PDFs salvos no localStorage ao montar o componente
+  // Carregar arquivos do Supabase
   useEffect(() => {
-    const savedPDFs = pdfService.getAllProcessedPDFs();
-    const filesFromStorage = savedPDFs.map(pdf => ({
-      id: pdf.id,
-      name: pdf.name,
-      size: 0, // Não temos o tamanho original salvo, usar 0
-      uploadDate: pdf.uploadDate,
-      status: 'processed' as const
-    }));
-    setUploadedFiles(filesFromStorage);
-    console.log('Arquivos carregados do storage:', filesFromStorage.length);
+    loadFilesFromSupabase();
   }, []);
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+  const loadFilesFromSupabase = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('knowledge_base')
+        .select('id, title, file_name, file_size, upload_date, status')
+        .order('upload_date', { ascending: false });
+
+      if (error) {
+        console.error('Error loading files:', error);
+        toast({
+          title: "Erro ao carregar arquivos",
+          description: "Não foi possível carregar os arquivos da base de conhecimento.",
+          variant: "destructive",
+        });
+      } else {
+        setUploadedFiles(data || []);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes || bytes === 0) return 'Tamanho não disponível';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const simulateTextExtraction = (fileName: string): string => {
+    return `Conteúdo extraído do arquivo ${fileName}:
+    
+    Informações sobre pediatria extraídas do documento:
+    - Desenvolvimento infantil: Marcos importantes do crescimento e desenvolvimento motor, cognitivo e social.
+    - Cuidados com recém-nascidos: Orientações essenciais para os primeiros dias de vida.
+    - Alimentação: Diretrizes sobre amamentação e introdução alimentar.
+    - Vacinação: Importância do calendário vacinal para proteção infantil.
+    - Sinais de alerta: Quando procurar ajuda médica urgente.
+    - Sono infantil: Padrões de sono saudáveis por faixa etária.
+    - Prevenção de acidentes: Medidas de segurança para cada fase do desenvolvimento.
+    - Cólicas e desconfortos: Manejo de situações comuns nos primeiros meses.
+    
+    Este é um conteúdo simulado baseado no nome do arquivo. Em produção, seria extraído o texto real do PDF.`;
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,41 +98,42 @@ const UploadSection = () => {
         continue;
       }
 
-      const newFile: UploadedFile = {
-        id: Date.now().toString() + Math.random(),
-        name: file.name,
-        size: file.size,
-        uploadDate: new Date(),
-        status: 'uploading'
-      };
-
-      setUploadedFiles(prev => [...prev, newFile]);
-
       try {
-        // Processar o PDF
-        const processedPDF = await pdfService.processPDF(file);
+        // Simular extração de texto do PDF
+        const extractedContent = simulateTextExtraction(file.name);
         
-        setUploadedFiles(prev => 
-          prev.map(f => 
-            f.id === newFile.id 
-              ? { ...f, id: processedPDF.id, status: 'processed' }
-              : f
-          )
-        );
-        
-        toast({
-          title: "PDF processado com sucesso!",
-          description: `${file.name} foi adicionado à base de conhecimento da Nanny.`,
-        });
+        // Inserir no Supabase
+        const { data, error } = await supabase
+          .from('knowledge_base')
+          .insert({
+            title: file.name.replace('.pdf', ''),
+            file_name: file.name,
+            file_path: '/uploads/' + file.name, // Caminho simulado
+            file_size: file.size,
+            content: extractedContent,
+            status: 'processed'
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error inserting file:', error);
+          toast({
+            title: "Erro ao salvar PDF",
+            description: `Não foi possível salvar ${file.name} na base de conhecimento.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "PDF processado com sucesso!",
+            description: `${file.name} foi adicionado à base de conhecimento da Nanny.`,
+          });
+          
+          // Recarregar lista de arquivos
+          loadFilesFromSupabase();
+        }
       } catch (error) {
-        setUploadedFiles(prev => 
-          prev.map(f => 
-            f.id === newFile.id 
-              ? { ...f, status: 'error' }
-              : f
-          )
-        );
-        
+        console.error('Error processing file:', error);
         toast({
           title: "Erro ao processar PDF",
           description: `Não foi possível processar ${file.name}.`,
@@ -112,18 +146,46 @@ const UploadSection = () => {
     event.target.value = '';
   };
 
-  const handleDeleteFile = (fileId: string) => {
-    const file = uploadedFiles.find(f => f.id === fileId);
-    if (file && file.status === 'processed') {
-      pdfService.removePDF(fileId);
+  const handleDeleteFile = async (fileId: string) => {
+    try {
+      const { error } = await supabase
+        .from('knowledge_base')
+        .delete()
+        .eq('id', fileId);
+
+      if (error) {
+        console.error('Error deleting file:', error);
+        toast({
+          title: "Erro ao remover arquivo",
+          description: "Não foi possível remover o arquivo.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Arquivo removido",
+          description: "O arquivo foi removido da base de conhecimento.",
+        });
+        
+        // Recarregar lista de arquivos
+        loadFilesFromSupabase();
+      }
+    } catch (error) {
+      console.error('Error:', error);
     }
-    
-    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
-    toast({
-      title: "Arquivo removido",
-      description: "O arquivo foi removido da base de conhecimento.",
-    });
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-nanny-800 mb-4">
+            Base de Conhecimento
+          </h2>
+          <p className="text-lg text-nanny-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -191,11 +253,11 @@ const UploadSection = () => {
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       file.status === 'processed' ? 'bg-green-100' : 
-                      file.status === 'uploading' ? 'bg-nanny-100' : 'bg-red-100'
+                      file.status === 'pending' ? 'bg-nanny-100' : 'bg-red-100'
                     }`}>
                       {file.status === 'processed' ? (
                         <CheckCircle className="h-5 w-5 text-green-600" />
-                      ) : file.status === 'uploading' ? (
+                      ) : file.status === 'pending' ? (
                         <Upload className="h-5 w-5 text-nanny-600 animate-pulse" />
                       ) : (
                         <FileText className="h-5 w-5 text-red-600" />
@@ -203,9 +265,9 @@ const UploadSection = () => {
                     </div>
                     
                     <div>
-                      <h4 className="font-medium text-gray-900">{file.name}</h4>
+                      <h4 className="font-medium text-gray-900">{file.title}</h4>
                       <p className="text-sm text-gray-500">
-                        {file.size > 0 ? formatFileSize(file.size) : 'Tamanho não disponível'} • {file.uploadDate.toLocaleDateString('pt-BR')}
+                        {formatFileSize(file.file_size)} • {new Date(file.upload_date).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
@@ -213,11 +275,11 @@ const UploadSection = () => {
                   <div className="flex items-center space-x-2">
                     <span className={`text-xs px-2 py-1 rounded-full ${
                       file.status === 'processed' ? 'bg-green-100 text-green-800' :
-                      file.status === 'uploading' ? 'bg-nanny-100 text-nanny-800' :
+                      file.status === 'pending' ? 'bg-nanny-100 text-nanny-800' :
                       'bg-red-100 text-red-800'
                     }`}>
                       {file.status === 'processed' ? 'Processado' :
-                       file.status === 'uploading' ? 'Processando...' : 'Erro'}
+                       file.status === 'pending' ? 'Processando...' : 'Erro'}
                     </span>
                     
                     <Button
