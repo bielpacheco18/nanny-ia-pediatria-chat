@@ -42,7 +42,12 @@ const UploadSection = () => {
           variant: "destructive",
         });
       } else {
-        setUploadedFiles(data || []);
+        // Properly type the status field when mapping from Supabase
+        const typedFiles: UploadedFile[] = (data || []).map(file => ({
+          ...file,
+          status: file.status as 'pending' | 'processed' | 'error'
+        }));
+        setUploadedFiles(typedFiles);
       }
     } catch (error) {
       console.error('Error:', error);
