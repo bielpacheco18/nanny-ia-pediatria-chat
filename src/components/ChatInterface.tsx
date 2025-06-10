@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Send, Bot, User, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { OpenAIService, ChatMessage } from "@/services/openaiService";
 
 interface Message {
   id: string;
@@ -24,8 +25,10 @@ const ChatInterface = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const openaiService = new OpenAIService();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,38 +37,6 @@ const ChatInterface = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  const generateNannyResponse = (userMessage: string): string => {
-    const lowerMessage = userMessage.toLowerCase();
-    
-    // Respostas baseadas na persona da Nanny
-    if (lowerMessage.includes('febre')) {
-      return 'Febre é um sinal de que o corpo está reagindo. Antes de medicar, observe: o bebê está ativo? Está mamando bem? Vamos juntas entender o contexto. Para bebês menores de 3 meses, é importante procurar orientação médica rapidamente. Você pode me contar mais sobre o estado geral do seu bebê?';
-    }
-    
-    if (lowerMessage.includes('choro') || lowerMessage.includes('chorando')) {
-      return 'Respira comigo. Isso não é frescura, nem fraqueza. É sobrecarga. A gente vai aliviar isso passo a passo, tá bem? O choro é a forma do bebê se comunicar. Vamos identificar juntas as possíveis causas: fome, sono, fralda, cólica ou necessidade de colo. O que você já tentou?';
-    }
-    
-    if (lowerMessage.includes('sono') || lowerMessage.includes('dormir')) {
-      return 'O sono do bebê pode ser desafiador mesmo. É importante lembrar que cada bebê tem seu ritmo. Vamos criar uma rotina suave e acolhedora. Você gostaria de algumas dicas práticas para estabelecer uma rotina de sono saudável?';
-    }
-    
-    if (lowerMessage.includes('amamentação') || lowerMessage.includes('amamentar')) {
-      return 'A amamentação é um momento especial, mas pode trazer dúvidas. É normal! Cada dupla mãe-bebê encontra seu próprio ritmo. Conte-me: qual sua principal preocupação sobre a amamentação? Estou aqui para te apoiar nessa jornada.';
-    }
-    
-    if (lowerMessage.includes('cólica')) {
-      return 'Cólicas são muito comuns nos primeiros meses e, embora angustiantes, geralmente são passageiras. Algumas técnicas podem ajudar: massagem na barriguinha, compressa morna, posição canguru. O mais importante é manter a calma - seu bebê sente sua energia. Quer que eu explique algumas técnicas de alívio?';
-    }
-    
-    if (lowerMessage.includes('obrigad') || lowerMessage.includes('obrigat')) {
-      return 'De nada! Fico feliz em poder ajudar você e seu bebê. Lembre-se: você está fazendo um trabalho incrível como mãe. Estou sempre aqui quando precisar de orientação ou apoio. 💜';
-    }
-    
-    // Resposta padrão acolhedora
-    return 'Entendo sua preocupação e estou aqui para te ajudar. Cada situação é única e merece atenção especial. Pode me contar mais detalhes sobre o que está acontecendo? Assim posso te orientar melhor, sempre lembrando que sou um apoio, mas em caso de dúvidas sérias, é importante consultar seu pediatra.';
-  };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -81,9 +52,16 @@ const ChatInterface = () => {
     setInputMessage('');
     setIsLoading(true);
 
-    // Simular delay da IA
-    setTimeout(() => {
-      const response = generateNannyResponse(inputMessage);
+    try {
+      // Adicionar mensagem do usuário ao histórico da conversa
+      const newHistory: ChatMessage[] = [
+        ...conversationHistory,
+        { role: 'user', content: inputMessage }
+      ];
+
+      // Gerar resposta baseada na base de conhecimento
+      const response = await openaiService.generateResponse(inputMessage, newHistory);
+      
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: response,
@@ -91,9 +69,33 @@ const ChatInterface = () => {
         timestamp: new Date()
       };
 
+      // Atualizar histórico da conversa
+      setConversationHistory([
+        ...newHistory,
+        { role: 'assistant', content: response }
+      ]);
+
       setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Erro ao gerar resposta:', error);
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns instantes.',
+        isUser: false,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+      
+      toast({
+        title: "Erro na conversa",
+        description: "Não foi possível gerar uma resposta. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000 + Math.random() * 2000); // 1-3 segundos de delay
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -137,7 +139,7 @@ const ChatInterface = () => {
                   <span className={`text-xs ${
                     message.isUser ? 'text-white/70' : 'text-gray-500'
                   } mt-1 block`}>
-                    {message.timestamp.toLocaleTimeString()}
+                    {message.timestamp.toLocaleTimeString('pt-BR')}
                   </span>
                 </div>
               </div>
@@ -154,7 +156,7 @@ const ChatInterface = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Loader2 className="h-4 w-4 animate-spin text-nanny-500" />
-                  <span className="text-sm text-gray-500">Nanny está pensando...</span>
+                  <span className="text-sm text-gray-500">Nanny está consultando a base de conhecimento...</span>
                 </div>
               </div>
             </Card>
@@ -183,7 +185,7 @@ const ChatInterface = () => {
           </Button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
-          Lembre-se: Em caso de emergência, procure sempre um médico. A Nanny é um apoio educativo.
+          Respostas baseadas na base de conhecimento carregada. Em caso de emergência, procure sempre um médico.
         </p>
       </div>
     </div>

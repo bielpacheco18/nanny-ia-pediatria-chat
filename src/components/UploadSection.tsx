@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Upload, FileText, Trash2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PDFService } from "@/services/pdfService";
 
 interface UploadedFile {
   id: string;
@@ -15,23 +16,9 @@ interface UploadedFile {
 }
 
 const UploadSection = () => {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([
-    {
-      id: '1',
-      name: 'Manual_Pediatria_Basica.pdf',
-      size: 2560000,
-      uploadDate: new Date(),
-      status: 'processed'
-    },
-    {
-      id: '2',
-      name: 'Guia_Amamentacao.pdf',
-      size: 1840000,
-      uploadDate: new Date(Date.now() - 86400000),
-      status: 'processed'
-    }
-  ]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const { toast } = useToast();
+  const pdfService = PDFService.getInstance();
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -41,18 +28,27 @@ const UploadSection = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    Array.from(files).forEach((file) => {
+    for (const file of Array.from(files)) {
       if (file.type !== 'application/pdf') {
         toast({
           title: "Formato não suportado",
           description: "Por favor, envie apenas arquivos PDF.",
           variant: "destructive",
         });
-        return;
+        continue;
+      }
+
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        toast({
+          title: "Arquivo muito grande",
+          description: "O arquivo deve ter no máximo 10MB.",
+          variant: "destructive",
+        });
+        continue;
       }
 
       const newFile: UploadedFile = {
@@ -65,8 +61,10 @@ const UploadSection = () => {
 
       setUploadedFiles(prev => [...prev, newFile]);
 
-      // Simular processamento
-      setTimeout(() => {
+      try {
+        // Processar o PDF
+        await pdfService.processPDF(file);
+        
         setUploadedFiles(prev => 
           prev.map(f => 
             f.id === newFile.id 
@@ -79,14 +77,33 @@ const UploadSection = () => {
           title: "PDF processado com sucesso!",
           description: `${file.name} foi adicionado à base de conhecimento da Nanny.`,
         });
-      }, 2000 + Math.random() * 3000);
-    });
+      } catch (error) {
+        setUploadedFiles(prev => 
+          prev.map(f => 
+            f.id === newFile.id 
+              ? { ...f, status: 'error' }
+              : f
+          )
+        );
+        
+        toast({
+          title: "Erro ao processar PDF",
+          description: `Não foi possível processar ${file.name}.`,
+          variant: "destructive",
+        });
+      }
+    }
 
     // Limpar input
     event.target.value = '';
   };
 
   const handleDeleteFile = (fileId: string) => {
+    const file = uploadedFiles.find(f => f.id === fileId);
+    if (file && file.status === 'processed') {
+      pdfService.removePDF(fileId);
+    }
+    
     setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
     toast({
       title: "Arquivo removido",
@@ -174,7 +191,7 @@ const UploadSection = () => {
                     <div>
                       <h4 className="font-medium text-gray-900">{file.name}</h4>
                       <p className="text-sm text-gray-500">
-                        {formatFileSize(file.size)} • {file.uploadDate.toLocaleDateString()}
+                        {formatFileSize(file.size)} • {file.uploadDate.toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
