@@ -9,12 +9,44 @@ export interface ProcessedPDF {
 export class PDFService {
   private static instance: PDFService;
   private processedPDFs: ProcessedPDF[] = [];
+  private readonly STORAGE_KEY = 'nanny_processed_pdfs';
+
+  constructor() {
+    this.loadFromStorage();
+  }
 
   static getInstance(): PDFService {
     if (!PDFService.instance) {
       PDFService.instance = new PDFService();
     }
     return PDFService.instance;
+  }
+
+  private loadFromStorage(): void {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Converter strings de data de volta para objetos Date
+        this.processedPDFs = parsed.map((pdf: any) => ({
+          ...pdf,
+          uploadDate: new Date(pdf.uploadDate)
+        }));
+        console.log('PDFs carregados do storage:', this.processedPDFs.length);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar PDFs do storage:', error);
+      this.processedPDFs = [];
+    }
+  }
+
+  private saveToStorage(): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.processedPDFs));
+      console.log('PDFs salvos no storage:', this.processedPDFs.length);
+    } catch (error) {
+      console.error('Erro ao salvar PDFs no storage:', error);
+    }
   }
 
   async processPDF(file: File): Promise<ProcessedPDF> {
@@ -40,6 +72,7 @@ export class PDFService {
     };
 
     this.processedPDFs.push(processedPDF);
+    this.saveToStorage();
     return processedPDF;
   }
 
@@ -55,5 +88,6 @@ export class PDFService {
 
   removePDF(id: string): void {
     this.processedPDFs = this.processedPDFs.filter(pdf => pdf.id !== id);
+    this.saveToStorage();
   }
 }

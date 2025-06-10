@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,20 @@ const UploadSection = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const { toast } = useToast();
   const pdfService = PDFService.getInstance();
+
+  // Carregar PDFs salvos no localStorage ao montar o componente
+  useEffect(() => {
+    const savedPDFs = pdfService.getAllProcessedPDFs();
+    const filesFromStorage = savedPDFs.map(pdf => ({
+      id: pdf.id,
+      name: pdf.name,
+      size: 0, // Não temos o tamanho original salvo, usar 0
+      uploadDate: pdf.uploadDate,
+      status: 'processed' as const
+    }));
+    setUploadedFiles(filesFromStorage);
+    console.log('Arquivos carregados do storage:', filesFromStorage.length);
+  }, []);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -63,12 +77,12 @@ const UploadSection = () => {
 
       try {
         // Processar o PDF
-        await pdfService.processPDF(file);
+        const processedPDF = await pdfService.processPDF(file);
         
         setUploadedFiles(prev => 
           prev.map(f => 
             f.id === newFile.id 
-              ? { ...f, status: 'processed' }
+              ? { ...f, id: processedPDF.id, status: 'processed' }
               : f
           )
         );
@@ -191,7 +205,7 @@ const UploadSection = () => {
                     <div>
                       <h4 className="font-medium text-gray-900">{file.name}</h4>
                       <p className="text-sm text-gray-500">
-                        {formatFileSize(file.size)} • {file.uploadDate.toLocaleDateString('pt-BR')}
+                        {file.size > 0 ? formatFileSize(file.size) : 'Tamanho não disponível'} • {file.uploadDate.toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
