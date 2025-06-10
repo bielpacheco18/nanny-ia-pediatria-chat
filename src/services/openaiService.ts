@@ -12,8 +12,19 @@ export class OpenAIService {
 
   constructor() {
     this.pdfService = PDFService.getInstance();
+    
+    // Debug log to check environment
+    console.log('Checking environment variables...');
+    console.log('import.meta.env:', import.meta.env);
+    
     // Em Vite, use import.meta.env ao invés de process.env
-    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || null;
+    try {
+      this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || null;
+      console.log('API Key loaded:', this.apiKey ? 'Yes (hidden)' : 'No');
+    } catch (error) {
+      console.error('Error accessing environment variable:', error);
+      this.apiKey = null;
+    }
   }
 
   setApiKey(key: string) {
@@ -23,6 +34,7 @@ export class OpenAIService {
   async generateResponse(userMessage: string, conversationHistory: ChatMessage[] = []): Promise<string> {
     // Se não há chave da API, usar respostas simuladas
     if (!this.apiKey) {
+      console.log('Using simulated response - no API key');
       return this.generateSimulatedResponse(userMessage);
     }
 
