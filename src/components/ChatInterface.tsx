@@ -3,7 +3,8 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Send, Bot, User, Loader2, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { OpenAIService, ChatMessage } from "@/services/openaiService";
 
@@ -26,9 +27,20 @@ const ChatInterface = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([]);
+  const [apiKey, setApiKey] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const openaiService = new OpenAIService();
+
+  // Load API key from localStorage on component mount
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem('openai_api_key');
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+      openaiService.setApiKey(savedApiKey);
+    }
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,6 +49,26 @@ const ChatInterface = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleSaveApiKey = () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, insira uma chave de API válida.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    localStorage.setItem('openai_api_key', apiKey);
+    openaiService.setApiKey(apiKey);
+    setIsDialogOpen(false);
+    
+    toast({
+      title: "Chave de API salva",
+      description: "Sua chave OpenAI foi salva com sucesso!",
+    });
+  };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -107,6 +139,43 @@ const ChatInterface = () => {
 
   return (
     <div className="flex flex-col h-full max-w-4xl mx-auto">
+      <div className="flex justify-end p-2">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Settings className="h-4 w-4 mr-2" />
+              Configurar API Key
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Configurar Chave OpenAI</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Insira sua chave de API da OpenAI para usar o chat com IA real. 
+                A chave será salva localmente no seu navegador.
+              </p>
+              <Input
+                type="password"
+                placeholder="sk-..."
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="w-full"
+              />
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveApiKey}>
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div
