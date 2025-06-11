@@ -5,8 +5,8 @@ export class ResponseFormattingUtils {
   static generateClearResponse(userMessage: string, relevantInfo: string[]): string {
     const cleanInfo = this.formatInformation(relevantInfo);
     
-    if (!cleanInfo || cleanInfo.length < 20 || this.hasProblematicContent(cleanInfo)) {
-      return this.generateSupportiveResponse(userMessage);
+    if (!cleanInfo || cleanInfo.length < 20) {
+      return 'Não encontrei informações específicas para sua pergunta na base de conhecimento.';
     }
     
     return cleanInfo;
@@ -34,27 +34,18 @@ export class ResponseFormattingUtils {
   static generateQuickResponse(userMessage: string, info: string): string {
     const simplified = TextCleaningUtils.simplifyText(info);
     
-    if (!simplified || simplified.length < 20 || this.hasProblematicContent(simplified)) {
-      return this.generateSupportiveResponse(userMessage);
+    if (!simplified || simplified.length < 20) {
+      return 'Não encontrei informações específicas para sua pergunta na base de conhecimento.';
     }
     
     return simplified;
   }
 
   static generateSupportiveResponse(userMessage: string): string {
-    return `Posso ajudar com informações sobre:
-• Alimentação e amamentação
-• Sono e rotinas  
-• Cuidados de saúde
-• Desenvolvimento do bebê
-• Higiene e cuidados diários
-
-Me conte mais detalhes da sua situação para te ajudar de forma mais específica.`;
+    return 'Não encontrei informações específicas para sua pergunta na base de conhecimento.';
   }
 
   static generateGreetingResponse(): string {
-    return `Olá! Como posso ajudar com seu bebê hoje?
-
-Me conte o que está acontecendo que eu te oriento.`;
+    return 'Como posso ajudar?';
   }
 }

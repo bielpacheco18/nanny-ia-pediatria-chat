@@ -10,7 +10,7 @@ export class ResponseGenerationService {
     console.log('Generating knowledge-based response...');
     
     if (!knowledgeBase || knowledgeBase.trim().length === 0) {
-      return 'Ainda não temos materiais na base de conhecimento. Adicione alguns documentos na seção "Base de Conhecimento" para que eu possa te ajudar melhor!';
+      return 'Base de conhecimento vazia. Adicione documentos para obter respostas.';
     }
 
     const cleanedKnowledge = TextCleaningUtils.cleanKnowledgeBase(knowledgeBase);
@@ -43,20 +43,17 @@ export class ResponseGenerationService {
   createSystemPrompt(knowledgeBase: string): string {
     const cleanedKnowledge = TextCleaningUtils.cleanKnowledgeBase(knowledgeBase);
     
-    return `Você é um assistente especializado em pediatria. Forneça informações claras e objetivas baseadas no conhecimento médico disponível.
+    return `Você é um assistente especializado em pediatria. Forneça informações diretas baseadas no conhecimento médico disponível.
 
 CONHECIMENTO MÉDICO:
 ${cleanedKnowledge}
 
-REGRAS DE RESPOSTA:
-- Seja claro e objetivo
-- Use linguagem simples
+REGRAS:
+- Seja direto e objetivo
+- Use informações da base de conhecimento
 - Para emergências, oriente buscar ajuda médica
-- Inclua informações práticas
-- NUNCA mencione "base de conhecimento"
-- Use termos simples (bebê ao invés de lactente)
 - Máximo 3 parágrafos
 
-Responda de forma direta e útil às perguntas sobre cuidados pediátricos.`;
+Responda diretamente às perguntas sobre cuidados pediátricos.`;
   }
 }
