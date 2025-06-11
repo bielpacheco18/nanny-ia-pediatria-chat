@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Upload, FileText, Trash2, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface UploadedFile {
   id: string;
@@ -20,6 +20,7 @@ const UploadSection = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Carregar arquivos do Supabase
   useEffect(() => {
@@ -181,36 +182,36 @@ const UploadSection = () => {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 px-4">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-nanny-800 mb-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-nanny-800 mb-4">
             Base de Conhecimento
           </h2>
-          <p className="text-lg text-nanny-600">Carregando...</p>
+          <p className="text-base md:text-lg text-nanny-600">Carregando...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 px-4">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-nanny-800 mb-4">
+        <h2 className="text-2xl md:text-3xl font-bold text-nanny-800 mb-4">
           Base de Conhecimento
         </h2>
-        <p className="text-lg text-nanny-600">
+        <p className="text-base md:text-lg text-nanny-600">
           Adicione PDFs com conteúdo pediátrico para enriquecer o conhecimento da Nanny
         </p>
       </div>
 
-      <Card className="p-8 border-dashed border-2 border-nanny-300 bg-nanny-50/50">
+      <Card className="p-6 md:p-8 border-dashed border-2 border-nanny-300 bg-nanny-50/50">
         <div className="text-center">
-          <Upload className="h-12 w-12 text-nanny-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-nanny-700 mb-2">
+          <Upload className="h-10 w-10 md:h-12 md:w-12 text-nanny-500 mx-auto mb-4" />
+          <h3 className="text-base md:text-lg font-semibold text-nanny-700 mb-2">
             Upload de Documentos PDF
           </h3>
-          <p className="text-nanny-600 mb-6">
-            Arraste e solte ou clique para selecionar arquivos PDF
+          <p className="text-sm md:text-base text-nanny-600 mb-6">
+            {isMobile ? "Toque para selecionar PDFs" : "Arraste e solte ou clique para selecionar arquivos PDF"}
           </p>
           
           <Input
@@ -224,7 +225,8 @@ const UploadSection = () => {
           
           <Button
             asChild
-            className="chat-gradient text-white hover:shadow-lg"
+            className="chat-gradient text-white hover:shadow-lg w-full sm:w-auto"
+            size={isMobile ? "default" : "lg"}
           >
             <label htmlFor="pdf-upload" className="cursor-pointer">
               <Upload className="mr-2 h-4 w-4" />
@@ -239,46 +241,46 @@ const UploadSection = () => {
       </Card>
 
       <div className="space-y-4">
-        <h3 className="text-xl font-semibold text-nanny-800">
+        <h3 className="text-lg md:text-xl font-semibold text-nanny-800">
           Arquivos na Base de Conhecimento ({uploadedFiles.length})
         </h3>
         
         {uploadedFiles.length === 0 ? (
-          <Card className="p-8 text-center">
-            <FileText className="h-12 w-12 text-nanny-300 mx-auto mb-4" />
-            <p className="text-nanny-500">
+          <Card className="p-6 md:p-8 text-center">
+            <FileText className="h-10 w-10 md:h-12 md:w-12 text-nanny-300 mx-auto mb-4" />
+            <p className="text-sm md:text-base text-nanny-500">
               Nenhum arquivo carregado ainda. Adicione PDFs para começar!
             </p>
           </Card>
         ) : (
           <div className="space-y-3">
             {uploadedFiles.map((file) => (
-              <Card key={file.id} className="p-4 border-nanny-200">
+              <Card key={file.id} className="p-3 md:p-4 border-nanny-200">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
+                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                       file.status === 'processed' ? 'bg-green-100' : 
                       file.status === 'pending' ? 'bg-nanny-100' : 'bg-red-100'
                     }`}>
                       {file.status === 'processed' ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
                       ) : file.status === 'pending' ? (
-                        <Upload className="h-5 w-5 text-nanny-600 animate-pulse" />
+                        <Upload className="h-4 w-4 md:h-5 md:w-5 text-nanny-600 animate-pulse" />
                       ) : (
-                        <FileText className="h-5 w-5 text-red-600" />
+                        <FileText className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
                       )}
                     </div>
                     
-                    <div>
-                      <h4 className="font-medium text-gray-900">{file.title}</h4>
-                      <p className="text-sm text-gray-500">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-medium text-gray-900 text-sm md:text-base truncate">{file.title}</h4>
+                      <p className="text-xs md:text-sm text-gray-500">
                         {formatFileSize(file.file_size)} • {new Date(file.upload_date).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
+                  <div className="flex items-center space-x-2 flex-shrink-0">
+                    <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
                       file.status === 'processed' ? 'bg-green-100 text-green-800' :
                       file.status === 'pending' ? 'bg-nanny-100 text-nanny-800' :
                       'bg-red-100 text-red-800'
@@ -291,7 +293,7 @@ const UploadSection = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteFile(file.id)}
-                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                      className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 h-8 w-8"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

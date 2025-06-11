@@ -4,10 +4,12 @@ import ChatInterface from "@/components/ChatInterface";
 
 const Chat = () => {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
-      <div className="container mx-auto px-4 py-8 h-[calc(100vh-120px)]">
-        <ChatInterface />
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full">
+          <ChatInterface />
+        </div>
       </div>
     </div>
   );

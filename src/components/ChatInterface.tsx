@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { OpenAIService, ChatMessage } from "@/services/openaiService";
 import { ChatHistoryService, Conversation } from "@/services/chatHistoryService";
 import ChatHistory from "@/components/ChatHistory";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Message {
   id: string;
@@ -30,6 +31,7 @@ const ChatInterface = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const openaiService = new OpenAIService();
+  const isMobile = useIsMobile();
 
   // Load API key and conversations on component mount
   useEffect(() => {
@@ -203,58 +205,63 @@ const ChatInterface = () => {
   return (
     <div className="flex h-full max-w-7xl mx-auto">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block w-80">
-        <ChatHistory
-          conversations={conversations}
-          currentConversationId={currentConversationId}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
-          onDeleteConversation={handleDeleteConversation}
-          onClearHistory={handleClearHistory}
-        />
-      </div>
+      {!isMobile && (
+        <div className="w-80">
+          <ChatHistory
+            conversations={conversations}
+            currentConversationId={currentConversationId}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+            onDeleteConversation={handleDeleteConversation}
+            onClearHistory={handleClearHistory}
+          />
+        </div>
+      )}
 
       {/* Chat Area */}
       <div className="flex flex-col flex-1 h-full">
-        <div className="flex justify-between items-center p-2 border-b border-nanny-200">
+        <div className="flex justify-between items-center p-3 md:p-2 border-b border-nanny-200">
           <div className="flex items-center space-x-2">
-            <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="md:hidden">
-                  <History className="h-4 w-4 mr-2" />
-                  Histórico
+            {isMobile && (
+              <>
+                <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <History className="h-4 w-4 mr-1" />
+                      {!isMobile && "Histórico"}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-80 p-0">
+                    <ChatHistory
+                      conversations={conversations}
+                      currentConversationId={currentConversationId}
+                      onSelectConversation={handleSelectConversation}
+                      onNewConversation={handleNewConversation}
+                      onDeleteConversation={handleDeleteConversation}
+                      onClearHistory={handleClearHistory}
+                    />
+                  </SheetContent>
+                </Sheet>
+                
+                <Button
+                  onClick={handleNewConversation}
+                  variant="outline"
+                  size="sm"
+                >
+                  Nova
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-80 p-0">
-                <ChatHistory
-                  conversations={conversations}
-                  currentConversationId={currentConversationId}
-                  onSelectConversation={handleSelectConversation}
-                  onNewConversation={handleNewConversation}
-                  onDeleteConversation={handleDeleteConversation}
-                  onClearHistory={handleClearHistory}
-                />
-              </SheetContent>
-            </Sheet>
-            
-            <Button
-              onClick={handleNewConversation}
-              variant="outline"
-              size="sm"
-              className="md:hidden"
-            >
-              Nova Conversa
-            </Button>
+              </>
+            )}
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Configurar API Key
+                <Settings className="h-4 w-4 mr-1 md:mr-2" />
+                {!isMobile && "Configurar API Key"}
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className={isMobile ? "w-[95vw] max-w-md" : ""}>
               <DialogHeader>
                 <DialogTitle>Configurar Chave OpenAI</DialogTitle>
               </DialogHeader>
@@ -283,12 +290,12 @@ const ChatInterface = () => {
           </Dialog>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
           {messages.length === 0 && (
             <div className="flex justify-center items-center h-full">
               <div className="text-center text-gray-500">
-                <Bot className="h-12 w-12 mx-auto mb-4 text-nanny-400" />
-                <h3 className="text-lg font-medium mb-2">Olá, Como Posso Ajudar?</h3>
+                <Bot className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-4 text-nanny-400" />
+                <h3 className="text-base md:text-lg font-medium mb-2">Olá, Como Posso Ajudar?</h3>
               </div>
             </div>
           )}
@@ -298,27 +305,27 @@ const ChatInterface = () => {
               key={message.id}
               className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
             >
-              <Card className={`max-w-[80%] p-4 ${
+              <Card className={`max-w-[85%] md:max-w-[80%] p-3 md:p-4 ${
                 message.isUser 
                   ? 'bg-nanny-500 text-white' 
                   : 'bg-white border-nanny-200'
               }`}>
-                <div className="flex items-start space-x-3">
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                <div className="flex items-start space-x-2 md:space-x-3">
+                  <div className={`flex-shrink-0 w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center ${
                     message.isUser 
                       ? 'bg-white/20' 
                       : 'bg-nanny-100'
                   }`}>
                     {message.isUser ? (
-                      <User className="h-4 w-4" />
+                      <User className="h-3 w-3 md:h-4 md:w-4" />
                     ) : (
-                      <Bot className="h-4 w-4 text-nanny-600" />
+                      <Bot className="h-3 w-3 md:h-4 md:w-4 text-nanny-600" />
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className={`text-sm ${
+                    <p className={`text-sm md:text-base ${
                       message.isUser ? 'text-white' : 'text-gray-700'
-                    }`}>
+                    } break-words`}>
                       {message.content}
                     </p>
                     <span className={`text-xs ${
@@ -334,10 +341,10 @@ const ChatInterface = () => {
           
           {isLoading && (
             <div className="flex justify-start">
-              <Card className="max-w-[80%] p-4 bg-white border-nanny-200">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-nanny-100 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-nanny-600" />
+              <Card className="max-w-[85%] md:max-w-[80%] p-3 md:p-4 bg-white border-nanny-200">
+                <div className="flex items-center space-x-2 md:space-x-3">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-nanny-100 flex items-center justify-center">
+                    <Bot className="h-3 w-3 md:h-4 md:w-4 text-nanny-600" />
                   </div>
                   <div className="flex items-center space-x-2">
                     <Loader2 className="h-4 w-4 animate-spin text-nanny-500" />
@@ -351,20 +358,21 @@ const ChatInterface = () => {
           <div ref={messagesEndRef} />
         </div>
         
-        <div className="border-t border-nanny-200 p-4 bg-white">
+        <div className="border-t border-nanny-200 p-3 md:p-4 bg-white">
           <div className="flex space-x-2">
             <Input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Digite sua pergunta sobre pediatria..."
-              className="flex-1 border-nanny-200 focus:border-nanny-500"
+              className="flex-1 border-nanny-200 focus:border-nanny-500 text-sm md:text-base"
               disabled={isLoading}
             />
             <Button
               onClick={handleSendMessage}
               disabled={!inputMessage.trim() || isLoading}
-              className="chat-gradient text-white hover:shadow-lg"
+              className="chat-gradient text-white hover:shadow-lg px-3 md:px-4"
+              size={isMobile ? "default" : "default"}
             >
               <Send className="h-4 w-4" />
             </Button>
