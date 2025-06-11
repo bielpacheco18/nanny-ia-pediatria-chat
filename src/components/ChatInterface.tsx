@@ -16,14 +16,7 @@ interface Message {
 }
 
 const ChatInterface = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: 'Olá! Eu sou a Nanny, sua pediatra virtual. Como posso ajudar você e seu bebê hoje? 💜',
-      isUser: false,
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ChatMessage[]>([]);
@@ -177,6 +170,17 @@ const ChatInterface = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="flex justify-center items-center h-full">
+            <div className="text-center text-gray-500">
+              <Bot className="h-12 w-12 mx-auto mb-4 text-nanny-400" />
+              <h3 className="text-lg font-medium mb-2">Olá! Eu sou a Nanny 💜</h3>
+              <p className="text-sm">Sua pediatra virtual está pronta para ajudar com qualquer dúvida sobre seu bebê.</p>
+              <p className="text-xs mt-2">Digite sua primeira pergunta para começarmos!</p>
+            </div>
+          </div>
+        )}
+
         {messages.map((message) => (
           <div
             key={message.id}
