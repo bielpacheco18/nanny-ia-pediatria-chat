@@ -1,4 +1,3 @@
-
 export class ResponseGenerationService {
   generateKnowledgeBasedResponse(userMessage: string, knowledgeBase: string): string {
     const lowerMessage = userMessage.toLowerCase();
@@ -23,7 +22,7 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
     
     // Se encontrou informações relevantes
     if (relevantInfo.length > 0) {
-      return this.generateSimpleResponse(userMessage, relevantInfo);
+      return this.generateClearResponse(userMessage, relevantInfo);
     }
     
     // Busca mais ampla
@@ -44,6 +43,10 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
       .replace(/Conteúdo extraído do arquivo.*?:\s*/g, '')
       .replace(/Este é um conteúdo simulado.*?\./g, '')
       .replace(/Em produção.*?\./g, '')
+      // Remove textos quebrados e mal formatados
+      .replace(/\d+\s+de\s+crianças\s+ao\s+ano,\s+estima-se\s+que\s+entre\s+\d+\./g, '')
+      .replace(/Os\s+níveis\s+mé\s+-\s+dios\s+estimados/g, 'Os níveis médios estimados')
+      .replace(/(\d+)º\s+dia/g, '$1° dia')
       .trim();
   }
 
@@ -81,30 +84,60 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
   }
 
   private findRelevantInformation(knowledge: string, keywords: string[], originalMessage: string): string[] {
-    const sentences = knowledge.split(/[.!?]+/).filter(sentence => sentence.trim().length > 15);
+    const sentences = this.cleanAndSplitSentences(knowledge);
     const relevantSentences: string[] = [];
 
     // Buscar por palavras-chave
     keywords.forEach(keyword => {
       const matchingSentences = sentences.filter(sentence => {
         const sentenceLower = sentence.toLowerCase();
-        return sentenceLower.includes(keyword.toLowerCase());
+        return sentenceLower.includes(keyword.toLowerCase()) && this.isCompleteSentence(sentence);
       });
       relevantSentences.push(...matchingSentences);
     });
 
-    // Busca por palavras da mensagem
+    // Busca por palavras da mensagem se não encontrou nada
     if (relevantSentences.length === 0) {
       const messageWords = originalMessage.toLowerCase().split(/\s+/).filter(word => word.length > 3);
       messageWords.forEach(word => {
         const matchingSentences = sentences.filter(sentence => {
-          return sentence.toLowerCase().includes(word);
+          return sentence.toLowerCase().includes(word) && this.isCompleteSentence(sentence);
         });
         relevantSentences.push(...matchingSentences);
       });
     }
 
     return [...new Set(relevantSentences)].slice(0, 2);
+  }
+
+  private cleanAndSplitSentences(text: string): string[] {
+    return text
+      .split(/[.!?]+/)
+      .map(sentence => sentence.trim())
+      .filter(sentence => 
+        sentence.length > 20 && 
+        sentence.length < 200 && 
+        !sentence.includes('000 de crianças') &&
+        !sentence.includes('níveis mé -') &&
+        this.hasValidStructure(sentence)
+      );
+  }
+
+  private isCompleteSentence(sentence: string): boolean {
+    // Verifica se a frase está completa e faz sentido
+    return sentence.length > 15 && 
+           sentence.length < 200 &&
+           !sentence.includes('...') &&
+           !sentence.match(/\d+\s+de\s+\w+\s+ao\s+ano,\s+estima-se/) &&
+           this.hasValidStructure(sentence);
+  }
+
+  private hasValidStructure(sentence: string): boolean {
+    // Verifica se a frase tem estrutura válida (sujeito + verbo ou informação útil)
+    const hasVerb = /\b(é|são|pode|deve|tem|têm|faz|fazem|está|estão|fica|ficam|acontece|ocorre|recomenda|indica)\b/i.test(sentence);
+    const hasUsefulInfo = /\b(bebê|criança|mês|meses|ano|anos|dia|dias|idade|peso|altura|temperatura|febre|sono|alimentação|leite|mama|fralda)\b/i.test(sentence);
+    
+    return hasVerb || hasUsefulInfo;
   }
 
   private findBroadInformation(knowledge: string, message: string): string {
@@ -134,43 +167,51 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
     return topicSentences.slice(0, 2).join('. ').trim();
   }
 
-  private generateSimpleResponse(userMessage: string, relevantInfo: string[]): string {
-    const info = this.simplifyInfo(relevantInfo.join('. '));
+  private generateClearResponse(userMessage: string, relevantInfo: string[]): string {
+    const cleanInfo = this.formatInformation(relevantInfo);
     
     if (userMessage.toLowerCase().includes('febre')) {
-      return `${info}
+      return `${cleanInfo}
 
-🌡️ **Dica importante**: Se a febre persistir ou você notar outros sintomas, consulte o pediatra. Você está cuidando bem! 💜`;
+🌡️ **Importante**: Se a febre não baixar ou surgir outros sintomas, procure o pediatra. 💜`;
     }
 
     if (userMessage.toLowerCase().includes('amament') || userMessage.toLowerCase().includes('leite')) {
-      return `${info}
+      return `${cleanInfo}
 
-🤱 **Lembre-se**: Cada bebê tem seu ritmo. Você está fazendo o melhor! Se tiver dificuldades, peça ajuda. 💜`;
+🤱 **Lembre-se**: Cada bebê tem seu ritmo para mamar. Tenha paciência! 💜`;
     }
 
     if (userMessage.toLowerCase().includes('sono') || userMessage.toLowerCase().includes('dormir')) {
-      return `${info}
+      return `${cleanInfo}
 
-😴 **Tranquilize-se**: Problemas de sono são normais nos primeiros meses. Essa fase passa! 💜`;
+😴 **Tranquilize-se**: Problemas de sono são normais nos primeiros meses. 💜`;
     }
 
     if (userMessage.toLowerCase().includes('choro') || userMessage.toLowerCase().includes('cólica')) {
-      return `${info}
+      return `${cleanInfo}
 
-👶 **Respira**: O choro é a forma do bebê se comunicar. Você está aprendendo a entendê-lo! 💜`;
+👶 **Calma**: O choro é normal - é como o bebê "fala" com você! 💜`;
     }
 
-    return `${info}
+    return `${cleanInfo}
 
-✨ **Lembre-se**: Cada bebê é único. Para dúvidas específicas, sempre consulte seu pediatra. 💜`;
+✨ **Dica**: Para dúvidas específicas, sempre consulte seu pediatra. 💜`;
+  }
+
+  private formatInformation(info: string[]): string {
+    return info
+      .join('. ')
+      .replace(/\s+/g, ' ')
+      .replace(/\.\s*\./g, '.')
+      .trim();
   }
 
   private generateQuickResponse(userMessage: string, info: string): string {
     const simplified = this.simplifyInfo(info);
     return `${simplified}
 
-💡 **Quer saber mais?** Me dê mais detalhes sobre sua situação que posso te ajudar melhor! 💜`;
+💡 **Quer mais detalhes?** Me conte mais sobre sua situação! 💜`;
   }
 
   private generateHelpfulResponse(userMessage: string): string {
@@ -189,7 +230,6 @@ Estou aqui para te apoiar! 💜`;
   }
 
   private simplifyInfo(text: string): string {
-    // Remove jargões médicos complexos e simplifica
     return text
       .replace(/\b(administrar|prescrever|indicado|recomendado)\b/gi, 'dar')
       .replace(/\b(temperatura corporal)\b/gi, 'temperatura')
@@ -203,6 +243,10 @@ Estou aqui para te apoiar! 💜`;
       .replace(/\b(respiratório)\b/gi, 'da respiração')
       .replace(/\b(gastrointestinal)\b/gi, 'do estômago')
       .replace(/\b(neurológico)\b/gi, 'do desenvolvimento')
+      // Remove textos mal formatados
+      .replace(/\d+\s+de\s+crianças\s+ao\s+ano.*?%/g, '')
+      .replace(/Os\s+níveis\s+mé\s+-\s+dios/g, 'Os níveis médios')
+      .replace(/\s+/g, ' ')
       .trim();
   }
 
