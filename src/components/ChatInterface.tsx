@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -215,30 +214,29 @@ const ChatInterface = () => {
         />
       </div>
 
-      {/* Mobile History Sheet */}
-      <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <SheetContent side="left" className="w-80 p-0">
-          <ChatHistory
-            conversations={conversations}
-            currentConversationId={currentConversationId}
-            onSelectConversation={handleSelectConversation}
-            onNewConversation={handleNewConversation}
-            onDeleteConversation={handleDeleteConversation}
-            onClearHistory={handleClearHistory}
-          />
-        </SheetContent>
-      </Sheet>
-
       {/* Chat Area */}
       <div className="flex flex-col flex-1 h-full">
         <div className="flex justify-between items-center p-2 border-b border-nanny-200">
           <div className="flex items-center space-x-2">
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="md:hidden">
-                <History className="h-4 w-4 mr-2" />
-                Histórico
-              </Button>
-            </SheetTrigger>
+            <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="md:hidden">
+                  <History className="h-4 w-4 mr-2" />
+                  Histórico
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80 p-0">
+                <ChatHistory
+                  conversations={conversations}
+                  currentConversationId={currentConversationId}
+                  onSelectConversation={handleSelectConversation}
+                  onNewConversation={handleNewConversation}
+                  onDeleteConversation={handleDeleteConversation}
+                  onClearHistory={handleClearHistory}
+                />
+              </SheetContent>
+            </Sheet>
+            
             <Button
               onClick={handleNewConversation}
               variant="outline"
