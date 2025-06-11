@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,9 +173,7 @@ const ChatInterface = () => {
           <div className="flex justify-center items-center h-full">
             <div className="text-center text-gray-500">
               <Bot className="h-12 w-12 mx-auto mb-4 text-nanny-400" />
-              <h3 className="text-lg font-medium mb-2">Olá! Eu sou a Nanny 💜</h3>
-              <p className="text-sm">Sua pediatra virtual está pronta para ajudar com qualquer dúvida sobre seu bebê.</p>
-              <p className="text-xs mt-2">Digite sua primeira pergunta para começarmos!</p>
+              <h3 className="text-lg font-medium mb-2">Olá, Como Posso Ajudar?</h3>
             </div>
           </div>
         )}
