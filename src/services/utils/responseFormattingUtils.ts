@@ -6,7 +6,7 @@ export class ResponseFormattingUtils {
     const cleanInfo = this.formatInformation(relevantInfo);
     
     // Se não há informação útil após limpeza, usar resposta acolhedora
-    if (!cleanInfo || cleanInfo.length < 20) {
+    if (!cleanInfo || cleanInfo.length < 20 || this.hasProblematicContent(cleanInfo)) {
       return this.generateSupportiveResponse(userMessage);
     }
     
@@ -58,10 +58,18 @@ export class ResponseFormattingUtils {
 💜 Estou aqui pra te apoiar nessa jornada.`;
   }
 
+  static hasProblematicContent(text: string): boolean {
+    // Verifica se o texto contém conteúdo problemático que deve ser evitado
+    const problematicTerms = /\b(encefalo|bilir|mie.*linização|neurônios|gestacional|patológico|etiológico|fisiopatológico|RN\s*<?\s*\d+\s*semanas)\b/i;
+    const brokenText = /\d+,\d+\s+Em\s+especial|devido\s+à\s+provável|induzida\s+pela/i;
+    
+    return problematicTerms.test(text) || brokenText.test(text);
+  }
+
   static formatInformation(info: string[]): string {
     const formatted = info
       .map(text => TextCleaningUtils.simplifyText(text))
-      .filter(text => text && text.length > 10)
+      .filter(text => text && text.length > 10 && !this.hasProblematicContent(text))
       .join('. ')
       .replace(/\s+/g, ' ')
       .replace(/\.\s*\./g, '.')
@@ -73,7 +81,7 @@ export class ResponseFormattingUtils {
   static generateQuickResponse(userMessage: string, info: string): string {
     const simplified = TextCleaningUtils.simplifyText(info);
     
-    if (!simplified || simplified.length < 20) {
+    if (!simplified || simplified.length < 20 || this.hasProblematicContent(simplified)) {
       return this.generateSupportiveResponse(userMessage);
     }
     

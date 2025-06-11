@@ -22,18 +22,25 @@ export class ResponseGenerationService {
       return ResponseFormattingUtils.generateGreetingResponse();
     }
     
-    // Se encontrou informações relevantes, responder com base na persona
+    // Se encontrou informações relevantes E elas são adequadas, responder com base na persona
     if (relevantInfo.length > 0) {
-      return ResponseFormattingUtils.generateClearResponse(userMessage, relevantInfo);
+      const hasValidInfo = relevantInfo.some(info => {
+        const cleaned = TextCleaningUtils.simplifyText(info);
+        return cleaned && cleaned.length > 15 && !ResponseFormattingUtils.hasProblematicContent(cleaned);
+      });
+      
+      if (hasValidInfo) {
+        return ResponseFormattingUtils.generateClearResponse(userMessage, relevantInfo);
+      }
     }
     
-    // Busca mais ampla
+    // Busca mais ampla, mas também filtrando conteúdo problemático
     const broadInfo = InformationSearchUtils.findBroadInformation(cleanedKnowledge, lowerMessage);
-    if (broadInfo && broadInfo.length > 30) {
+    if (broadInfo && broadInfo.length > 30 && !ResponseFormattingUtils.hasProblematicContent(broadInfo)) {
       return ResponseFormattingUtils.generateQuickResponse(userMessage, broadInfo);
     }
     
-    // Resposta de apoio personalizada baseada no estado emocional
+    // Sempre resposta de apoio personalizada se não tiver informação adequada
     return ResponseFormattingUtils.generateSupportiveResponse(userMessage);
   }
 
@@ -89,6 +96,8 @@ REGRAS DE RESPOSTA:
 - Inclua dicas práticas
 - NUNCA mencione "base de conhecimento"
 - Reconheça o estado emocional da mãe na resposta
+- NUNCA use termos técnicos como "encefalopatia", "bilirrubina", "mielinização", "RN <32 semanas"
+- SEMPRE use linguagem materna e acolhedora
 
 Seja uma pediatra que fala como uma amiga experiente e confiável.`;
   }
