@@ -1,4 +1,3 @@
-
 export class ResponseGenerationService {
   generateKnowledgeBasedResponse(userMessage: string, knowledgeBase: string): string {
     const lowerMessage = userMessage.toLowerCase();
@@ -18,18 +17,15 @@ export class ResponseGenerationService {
     const keywords = this.extractKeywords(lowerMessage);
     console.log('Keywords extracted:', keywords);
     
-    // Buscar informações relevantes baseadas nas palavras-chave
-    const relevantInfo = this.findRelevantInformation(cleanedKnowledge, keywords);
+    // Buscar informações relevantes de forma mais ampla
+    const relevantInfo = this.findRelevantInformation(cleanedKnowledge, keywords, lowerMessage);
     console.log('Relevant info found:', relevantInfo.length > 0);
     
     // Respostas para saudações usando conhecimento geral
     if (this.isGreeting(lowerMessage)) {
-      const generalInfo = this.extractGeneralPediatricInfo(cleanedKnowledge);
-      return `Olá! Eu sou a Nanny, sua pediatra virtual! 💜 
+      return `Olá! Como posso te ajudar hoje? 
 
-Estou aqui para te ajudar com qualquer dúvida sobre o cuidado do seu pequeno. Posso orientar sobre desenvolvimento infantil, alimentação, sono, saúde e muito mais.
-
-O que você gostaria de saber hoje?`;
+Estou aqui para esclarecer suas dúvidas sobre pediatria com base na nossa base de conhecimento. Pode me fazer qualquer pergunta sobre cuidados com seu bebê! 💜`;
     }
     
     // Se encontrou informações relevantes, usar para responder
@@ -39,12 +35,22 @@ O que você gostaria de saber hoje?`;
     
     // Tentar busca mais ampla se não encontrou nada específico
     const broadInfo = this.findBroadInformation(cleanedKnowledge, lowerMessage);
-    if (broadInfo) {
+    if (broadInfo && broadInfo.length > 50) {
       return this.generateGeneralResponse(userMessage, broadInfo);
     }
     
-    // Se não encontrou nada específico, dar resposta geral empática
-    return this.generateFallbackResponse();
+    // Buscar qualquer conteúdo relacionado mesmo que remotamente
+    const anyRelatedInfo = this.findAnyRelatedContent(cleanedKnowledge, lowerMessage);
+    if (anyRelatedInfo && anyRelatedInfo.length > 50) {
+      return `Com base na nossa base de conhecimento, posso te ajudar com essa informação:
+
+${anyRelatedInfo}
+
+Para orientações mais específicas sobre seu caso, sempre consulte seu pediatra de confiança. 💜`;
+    }
+    
+    // Se realmente não encontrou nada, dar uma resposta mais útil
+    return this.generateHelpfulFallbackResponse(userMessage);
   }
 
   private cleanKnowledgeBase(knowledgeBase: string): string {
@@ -63,18 +69,22 @@ O que você gostaria de saber hoje?`;
     // Palavras-chave mais específicas para pediatria
     const pediatricTerms = [
       'bebe', 'bebê', 'criança', 'filho', 'filha', 'recém-nascido', 'newborn',
-      'amament', 'leite', 'mama', 'peito', 'mamadeira',
-      'sono', 'dormir', 'descanso', 'noite', 'acordar',
-      'febre', 'temperatura', 'termômetro', 'graus',
-      'cólica', 'choro', 'chorar', 'desconforto', 'dor',
-      'fralda', 'xixi', 'cocô', 'intestino',
-      'vacinação', 'vacina', 'imunização',
-      'desenvolvimento', 'crescimento', 'peso', 'altura',
-      'alimentação', 'comida', 'papinha', 'introdução',
-      'dente', 'dentição', 'mordedor',
-      'banho', 'higiene', 'limpeza',
-      'segurança', 'acidente', 'prevenção',
-      'médico', 'pediatra', 'consulta'
+      'amament', 'leite', 'mama', 'peito', 'mamadeira', 'aleitamento',
+      'sono', 'dormir', 'descanso', 'noite', 'acordar', 'insônia',
+      'febre', 'temperatura', 'termômetro', 'graus', 'febril',
+      'cólica', 'choro', 'chorar', 'desconforto', 'dor', 'irritação',
+      'fralda', 'xixi', 'cocô', 'intestino', 'evacuação', 'urina',
+      'vacinação', 'vacina', 'imunização', 'calendário',
+      'desenvolvimento', 'crescimento', 'peso', 'altura', 'marcos',
+      'alimentação', 'comida', 'papinha', 'introdução', 'nutricão',
+      'dente', 'dentição', 'mordedor', 'dental',
+      'banho', 'higiene', 'limpeza', 'cuidado',
+      'segurança', 'acidente', 'prevenção', 'proteção',
+      'médico', 'pediatra', 'consulta', 'exame',
+      'gripe', 'resfriado', 'tosse', 'espirro', 'coriza',
+      'pele', 'assadura', 'alergia', 'coceira', 'vermelhidão',
+      'desenvolvimento', 'motor', 'cognitivo', 'social',
+      'verrugas', 'zinco', 'vitamina', 'suplemento'
     ];
 
     const words = message.toLowerCase().split(/\s+/);
@@ -95,12 +105,11 @@ O que você gostaria de saber hoje?`;
     return greetings.some(greeting => message.includes(greeting)) || message.length < 10;
   }
 
-  private findRelevantInformation(knowledge: string, keywords: string[]): string[] {
-    if (keywords.length === 0) return [];
-
+  private findRelevantInformation(knowledge: string, keywords: string[], originalMessage: string): string[] {
     const sentences = knowledge.split(/[.!?]+/).filter(sentence => sentence.trim().length > 20);
     const relevantSentences: string[] = [];
 
+    // Buscar por palavras-chave específicas
     keywords.forEach(keyword => {
       const matchingSentences = sentences.filter(sentence => {
         const sentenceLower = sentence.toLowerCase();
@@ -109,6 +118,18 @@ O que você gostaria de saber hoje?`;
       relevantSentences.push(...matchingSentences);
     });
 
+    // Se não encontrou nada com keywords, tentar busca por proximidade de palavras
+    if (relevantSentences.length === 0) {
+      const messageWords = originalMessage.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+      messageWords.forEach(word => {
+        const matchingSentences = sentences.filter(sentence => {
+          const sentenceLower = sentence.toLowerCase();
+          return sentenceLower.includes(word);
+        });
+        relevantSentences.push(...matchingSentences);
+      });
+    }
+
     // Remover duplicatas e pegar as melhores
     const uniqueSentences = [...new Set(relevantSentences)];
     return uniqueSentences.slice(0, 3);
@@ -116,15 +137,18 @@ O que você gostaria de saber hoje?`;
 
   private findBroadInformation(knowledge: string, message: string): string {
     const topics = {
-      'alimentação': ['aliment', 'comer', 'comida', 'leite', 'papinha'],
-      'sono': ['sono', 'dormir', 'descanso', 'noite'],
-      'saúde': ['saúde', 'doença', 'sintoma', 'febre', 'tosse'],
-      'desenvolvimento': ['desenvolviment', 'cresciment', 'marcos', 'habilidade'],
-      'cuidados': ['cuidado', 'higiene', 'banho', 'fralda']
+      'alimentação': ['aliment', 'comer', 'comida', 'leite', 'papinha', 'nutri'],
+      'sono': ['sono', 'dormir', 'descanso', 'noite', 'acordar'],
+      'saúde': ['saúde', 'doença', 'sintoma', 'febre', 'tosse', 'gripe', 'resfriado'],
+      'desenvolvimento': ['desenvolviment', 'cresciment', 'marcos', 'habilidade', 'motor'],
+      'cuidados': ['cuidado', 'higiene', 'banho', 'fralda', 'limpeza'],
+      'pele': ['pele', 'assadura', 'alergia', 'coceira', 'vermelhidão'],
+      'medicamentos': ['remédio', 'medicament', 'vitamina', 'suplemento', 'zinco'],
+      'vacinação': ['vacina', 'imunização', 'calendário']
     };
 
     for (const [topic, terms] of Object.entries(topics)) {
-      if (terms.some(term => message.includes(term))) {
+      if (terms.some(term => message.toLowerCase().includes(term))) {
         const topicInfo = this.findTopicInformation(knowledge, terms);
         if (topicInfo) return topicInfo;
       }
@@ -140,16 +164,30 @@ O que você gostaria de saber hoje?`;
       return terms.some(term => sentenceLower.includes(term));
     });
 
-    return topicSentences.slice(0, 2).join('. ').trim();
+    return topicSentences.slice(0, 3).join('. ').trim();
   }
 
-  private extractGeneralPediatricInfo(knowledge: string): string {
-    const sentences = knowledge.split(/[.!?]+/).filter(sentence => {
+  private findAnyRelatedContent(knowledge: string, message: string): string {
+    const messageWords = message.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+    const sentences = knowledge.split(/[.!?]+/).filter(sentence => sentence.trim().length > 30);
+    
+    // Buscar sentenças que contenham pelo menos uma palavra da mensagem
+    const relatedSentences = sentences.filter(sentence => {
+      const sentenceLower = sentence.toLowerCase();
+      return messageWords.some(word => sentenceLower.includes(word));
+    });
+
+    if (relatedSentences.length > 0) {
+      return relatedSentences.slice(0, 2).join('. ').trim();
+    }
+
+    // Se ainda não encontrou, pegar uma amostra geral da base de conhecimento
+    const generalSentences = sentences.filter(sentence => {
       const clean = sentence.trim();
       return clean.length > 30 && !clean.toLowerCase().includes('simulado');
     });
 
-    return sentences.slice(0, 1).join('. ').trim();
+    return generalSentences.slice(0, 1).join('. ').trim();
   }
 
   private generateNaturalResponse(userMessage: string, relevantInfo: string[]): string {
@@ -194,12 +232,17 @@ Para te dar uma orientação mais específica sobre seu bebê, seria importante 
 Pode me contar mais sobre o que está te preocupando? Estou aqui para te apoiar nessa jornada! 💜`;
   }
 
-  private generateFallbackResponse(): string {
-    return `Vejo que você tem uma dúvida importante sobre seu pequeno. Embora eu tenha conhecimento em pediatria, para te dar a melhor orientação possível, seria ótimo se você pudesse ser mais específica sobre sua preocupação.
+  private generateHelpfulFallbackResponse(userMessage: string): string {
+    return `Entendi sua pergunta sobre "${userMessage}". 
 
-Como mãe, você conhece seu bebê melhor que ninguém. Confie no seu instinto e, para questões específicas, sempre consulte seu pediatra de confiança.
+Baseando-me na nossa base de conhecimento, posso te ajudar com diversas questões pediátricas como desenvolvimento infantil, alimentação, sono, cuidados gerais e saúde do bebê.
 
-O que exatamente está te preocupando hoje? Estou aqui para te apoiar! 💜`;
+Poderia reformular sua pergunta de forma mais específica? Por exemplo:
+- "Como tratar assadura do bebê?"
+- "Quando introduzir papinha?"
+- "O que fazer quando o bebê não dorme?"
+
+Estou aqui para te ajudar! 💜`;
   }
 
   createSystemPrompt(knowledgeBase: string): string {
