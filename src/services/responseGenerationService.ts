@@ -10,147 +10,217 @@ export class ResponseGenerationService {
       return 'Ainda não temos documentos pediátricos na base de conhecimento. Por favor, adicione alguns materiais na seção "Base de Conhecimento" para que eu possa te ajudar melhor. 💜';
     }
 
-    // Buscar por palavras-chave na base de conhecimento de forma mais ampla
-    const knowledgeWords = knowledgeBase.toLowerCase();
+    // Limpar e processar o conteúdo da base de conhecimento
+    const cleanedKnowledge = this.cleanKnowledgeBase(knowledgeBase);
+    console.log('Cleaned knowledge base length:', cleanedKnowledge.length);
+
+    // Extrair palavras-chave mais relevantes da pergunta
+    const keywords = this.extractKeywords(lowerMessage);
+    console.log('Keywords extracted:', keywords);
     
-    // Extrair palavras-chave da pergunta do usuário (incluindo palavras menores)
-    const keywords = lowerMessage.split(' ').filter(word => word.length > 2);
-    console.log('Keywords found:', keywords);
+    // Buscar informações relevantes baseadas nas palavras-chave
+    const relevantInfo = this.findRelevantInformation(cleanedKnowledge, keywords);
+    console.log('Relevant info found:', relevantInfo.length > 0);
     
-    // Verificar se alguma palavra-chave está presente na base de conhecimento
-    const relevantInfo = keywords.some(keyword => knowledgeWords.includes(keyword));
-    console.log('Relevant info found in knowledge base:', relevantInfo);
-    
-    // Respostas para saudações e mensagens curtas usando a base de conhecimento
-    if (lowerMessage.includes('oi') || lowerMessage.includes('olá') || lowerMessage.includes('hello') || lowerMessage.length < 4) {
-      const introInfo = this.extractGeneralInfo(knowledgeBase);
+    // Respostas para saudações usando conhecimento geral
+    if (this.isGreeting(lowerMessage)) {
+      const generalInfo = this.extractGeneralPediatricInfo(cleanedKnowledge);
       return `Olá! Eu sou a Nanny, sua pediatra virtual! 💜 
 
-${introInfo}
+Estou aqui para te ajudar com qualquer dúvida sobre o cuidado do seu pequeno. Posso orientar sobre desenvolvimento infantil, alimentação, sono, saúde e muito mais.
 
-Estou aqui para te ajudar com qualquer dúvida sobre o cuidado do seu pequeno. O que você gostaria de saber hoje?`;
+O que você gostaria de saber hoje?`;
     }
     
-    if (relevantInfo) {
-      // Tentar encontrar seções relevantes da base de conhecimento
-      const sentences = knowledgeBase.split(/[.!?]+/).filter(sentence => sentence.trim().length > 15);
-      const relevantSentences = sentences.filter(sentence => {
+    // Se encontrou informações relevantes, usar para responder
+    if (relevantInfo.length > 0) {
+      return this.generateNaturalResponse(userMessage, relevantInfo);
+    }
+    
+    // Tentar busca mais ampla se não encontrou nada específico
+    const broadInfo = this.findBroadInformation(cleanedKnowledge, lowerMessage);
+    if (broadInfo) {
+      return this.generateGeneralResponse(userMessage, broadInfo);
+    }
+    
+    // Se não encontrou nada específico, dar resposta geral empática
+    return this.generateFallbackResponse();
+  }
+
+  private cleanKnowledgeBase(knowledgeBase: string): string {
+    // Remove títulos e metadados, mantém apenas o conteúdo relevante
+    return knowledgeBase
+      .replace(/Título:.*?\n\n/g, '')
+      .replace(/Conteúdo:\n/g, '')
+      .replace(/---\n\n/g, '\n')
+      .replace(/Conteúdo extraído do arquivo.*?:\s*/g, '')
+      .replace(/Este é um conteúdo simulado.*?\./g, '')
+      .replace(/Em produção.*?\./g, '')
+      .trim();
+  }
+
+  private extractKeywords(message: string): string[] {
+    // Palavras-chave mais específicas para pediatria
+    const pediatricTerms = [
+      'bebe', 'bebê', 'criança', 'filho', 'filha', 'recém-nascido', 'newborn',
+      'amament', 'leite', 'mama', 'peito', 'mamadeira',
+      'sono', 'dormir', 'descanso', 'noite', 'acordar',
+      'febre', 'temperatura', 'termômetro', 'graus',
+      'cólica', 'choro', 'chorar', 'desconforto', 'dor',
+      'fralda', 'xixi', 'cocô', 'intestino',
+      'vacinação', 'vacina', 'imunização',
+      'desenvolvimento', 'crescimento', 'peso', 'altura',
+      'alimentação', 'comida', 'papinha', 'introdução',
+      'dente', 'dentição', 'mordedor',
+      'banho', 'higiene', 'limpeza',
+      'segurança', 'acidente', 'prevenção',
+      'médico', 'pediatra', 'consulta'
+    ];
+
+    const words = message.toLowerCase().split(/\s+/);
+    const relevantWords = words.filter(word => {
+      return word.length > 2 && (
+        pediatricTerms.some(term => word.includes(term) || term.includes(word))
+      );
+    });
+
+    // Adicionar palavras maiores que podem ser relevantes
+    const longerWords = words.filter(word => word.length > 4);
+    
+    return [...new Set([...relevantWords, ...longerWords])];
+  }
+
+  private isGreeting(message: string): boolean {
+    const greetings = ['oi', 'olá', 'hello', 'hi', 'bom dia', 'boa tarde', 'boa noite'];
+    return greetings.some(greeting => message.includes(greeting)) || message.length < 10;
+  }
+
+  private findRelevantInformation(knowledge: string, keywords: string[]): string[] {
+    if (keywords.length === 0) return [];
+
+    const sentences = knowledge.split(/[.!?]+/).filter(sentence => sentence.trim().length > 20);
+    const relevantSentences: string[] = [];
+
+    keywords.forEach(keyword => {
+      const matchingSentences = sentences.filter(sentence => {
         const sentenceLower = sentence.toLowerCase();
-        return keywords.some(keyword => sentenceLower.includes(keyword));
+        return sentenceLower.includes(keyword.toLowerCase());
       });
-      
-      console.log('Relevant sentences found:', relevantSentences.length);
-      
-      if (relevantSentences.length > 0) {
-        // Usar as informações relevantes para construir uma resposta natural
-        const info = relevantSentences.slice(0, 3).join('. ').trim();
-        return `${info}. 
+      relevantSentences.push(...matchingSentences);
+    });
 
-Lembre-se que cada criança é única e pode ter variações. Se tiver dúvidas específicas sobre seu pequeno, sempre consulte seu pediatra de confiança. Você está fazendo um ótimo trabalho! 💜`;
-      }
-    }
-    
-    // Respostas específicas baseadas no conhecimento disponível
-    if (lowerMessage.includes('febre')) {
-      const feverInfo = this.findSpecificInfo(knowledgeBase, ['febre', 'temperatura']);
-      if (feverInfo) {
-        return `${feverInfo}
-
-Respira comigo - você está cuidando bem do seu bebê. Para orientações específicas sobre o seu caso, consulte seu pediatra. 💜`;
-      }
-    }
-    
-    if (lowerMessage.includes('amament') || lowerMessage.includes('leite')) {
-      const breastfeedingInfo = this.findSpecificInfo(knowledgeBase, ['amament', 'leite', 'mama']);
-      if (breastfeedingInfo) {
-        return `${breastfeedingInfo}
-
-Isso não é frescura - você está fazendo o melhor para seu pequeno! 💜`;
-      }
-    }
-    
-    if (lowerMessage.includes('sono') || lowerMessage.includes('dormir')) {
-      const sleepInfo = this.findSpecificInfo(knowledgeBase, ['sono', 'dormir', 'descanso']);
-      if (sleepInfo) {
-        return `${sleepInfo}
-
-Respira comigo - essa fase passa e vocês vão encontrar o equilíbrio. 💜`;
-      }
-    }
-
-    if (lowerMessage.includes('cólica') || lowerMessage.includes('choro')) {
-      const colicInfo = this.findSpecificInfo(knowledgeBase, ['cólica', 'choro', 'desconforto']);
-      if (colicInfo) {
-        return `${colicInfo}
-
-Vamos juntas descobrir o que pode estar causando esse desconforto. Você está sendo uma mãe incrível! 💜`;
-      }
-    }
-    
-    // Se há base de conhecimento mas não encontrou algo específico, dar uma resposta mais geral
-    const generalInfo = this.extractGeneralInfo(knowledgeBase);
-    if (generalInfo) {
-      return `${generalInfo}
-
-Para te dar uma orientação mais precisa e personalizada para seu bebê, seria importante conversar sobre mais detalhes da situação. Cada criança é única e merece cuidado individualizado. 
-
-Pode me contar mais sobre o que está te preocupando? Você está fazendo um trabalho incrível! 💜`;
-    }
-    
-    // Se chegou até aqui, significa que não conseguiu extrair informações úteis
-    return 'Vejo que temos alguns documentos na base de conhecimento, mas não consegui encontrar informações específicas sobre sua questão. Te encorajo a adicionar mais materiais pediátricos detalhados na seção "Base de Conhecimento" para que eu possa te ajudar melhor. Para questões urgentes, sempre consulte seu pediatra. Você está fazendo um ótimo trabalho! 💜';
+    // Remover duplicatas e pegar as melhores
+    const uniqueSentences = [...new Set(relevantSentences)];
+    return uniqueSentences.slice(0, 3);
   }
 
-  private findSpecificInfo(knowledgeBase: string, keywords: string[]): string {
-    const sentences = knowledgeBase.split(/[.!?]+/).filter(sentence => sentence.trim().length > 15);
-    const relevantSentences = sentences.filter(sentence => {
+  private findBroadInformation(knowledge: string, message: string): string {
+    const topics = {
+      'alimentação': ['aliment', 'comer', 'comida', 'leite', 'papinha'],
+      'sono': ['sono', 'dormir', 'descanso', 'noite'],
+      'saúde': ['saúde', 'doença', 'sintoma', 'febre', 'tosse'],
+      'desenvolvimento': ['desenvolviment', 'cresciment', 'marcos', 'habilidade'],
+      'cuidados': ['cuidado', 'higiene', 'banho', 'fralda']
+    };
+
+    for (const [topic, terms] of Object.entries(topics)) {
+      if (terms.some(term => message.includes(term))) {
+        const topicInfo = this.findTopicInformation(knowledge, terms);
+        if (topicInfo) return topicInfo;
+      }
+    }
+
+    return '';
+  }
+
+  private findTopicInformation(knowledge: string, terms: string[]): string {
+    const sentences = knowledge.split(/[.!?]+/).filter(sentence => sentence.trim().length > 20);
+    const topicSentences = sentences.filter(sentence => {
       const sentenceLower = sentence.toLowerCase();
-      return keywords.some(keyword => sentenceLower.includes(keyword));
+      return terms.some(term => sentenceLower.includes(term));
     });
-    
-    if (relevantSentences.length > 0) {
-      return relevantSentences.slice(0, 2).join('. ').trim();
-    }
-    
-    return '';
+
+    return topicSentences.slice(0, 2).join('. ').trim();
   }
 
-  private extractGeneralInfo(knowledgeBase: string): string {
-    // Extrair informações gerais mais úteis da base de conhecimento
-    const sentences = knowledgeBase.split(/[.!?]+/).filter(sentence => {
-      const sentence_clean = sentence.trim();
-      return sentence_clean.length > 20 && 
-             !sentence_clean.toLowerCase().includes('conteúdo extraído') &&
-             !sentence_clean.toLowerCase().includes('este é um conteúdo simulado');
+  private extractGeneralPediatricInfo(knowledge: string): string {
+    const sentences = knowledge.split(/[.!?]+/).filter(sentence => {
+      const clean = sentence.trim();
+      return clean.length > 30 && !clean.toLowerCase().includes('simulado');
     });
+
+    return sentences.slice(0, 1).join('. ').trim();
+  }
+
+  private generateNaturalResponse(userMessage: string, relevantInfo: string[]): string {
+    const info = relevantInfo.join('. ').trim();
     
-    if (sentences.length > 0) {
-      return sentences.slice(0, 2).join('. ').trim();
+    // Resposta personalizada baseada no tipo de pergunta
+    if (userMessage.toLowerCase().includes('febre')) {
+      return `${info}.
+
+Febre em bebês pode ser preocupante, mas respira comigo - você está cuidando bem do seu pequeno. Mantenha a calma e monitore a temperatura. Se persistir ou você notar outros sintomas, sempre consulte seu pediatra. 💜`;
     }
-    
-    return '';
+
+    if (userMessage.toLowerCase().includes('amament') || userMessage.toLowerCase().includes('leite')) {
+      return `${info}.
+
+A amamentação é uma jornada única para cada mamãe e bebê. Isso não é frescura - você está fazendo o melhor para seu pequeno! Se tiver dificuldades, procure apoio e lembre-se: você é mais forte do que imagina. 💜`;
+    }
+
+    if (userMessage.toLowerCase().includes('sono') || userMessage.toLowerCase().includes('dormir')) {
+      return `${info}.
+
+Questões de sono são muito comuns nos primeiros meses. Respira comigo - essa fase passa e vocês vão encontrar o ritmo de vocês. Cada bebê tem seu tempo, e você está fazendo um trabalho incrível! 💜`;
+    }
+
+    if (userMessage.toLowerCase().includes('choro') || userMessage.toLowerCase().includes('cólica')) {
+      return `${info}.
+
+O choro do bebê pode ser angustiante, mas vamos juntas descobrir o que pode estar incomodando seu pequeno. Você conhece seu bebê melhor que ninguém, confie no seu instinto maternal. 💜`;
+    }
+
+    // Resposta geral empática
+    return `${info}.
+
+Lembre-se que cada bebê é único e se desenvolve no seu próprio ritmo. Você está fazendo um trabalho maravilhoso como mãe! Para orientações específicas sobre seu pequeno, sempre consulte seu pediatra de confiança. 💜`;
+  }
+
+  private generateGeneralResponse(userMessage: string, info: string): string {
+    return `${info}.
+
+Para te dar uma orientação mais específica sobre seu bebê, seria importante conhecer mais detalhes da situação. Cada criança é especial e merece cuidado personalizado. 
+
+Pode me contar mais sobre o que está te preocupando? Estou aqui para te apoiar nessa jornada! 💜`;
+  }
+
+  private generateFallbackResponse(): string {
+    return `Vejo que você tem uma dúvida importante sobre seu pequeno. Embora eu tenha conhecimento em pediatria, para te dar a melhor orientação possível, seria ótimo se você pudesse ser mais específica sobre sua preocupação.
+
+Como mãe, você conhece seu bebê melhor que ninguém. Confie no seu instinto e, para questões específicas, sempre consulte seu pediatra de confiança.
+
+O que exatamente está te preocupando hoje? Estou aqui para te apoiar! 💜`;
   }
 
   createSystemPrompt(knowledgeBase: string): string {
+    const cleanedKnowledge = this.cleanKnowledgeBase(knowledgeBase);
+    
     return `Você é a Nanny, uma pediatra virtual acolhedora e empática especializada em cuidados infantis. 
 
-PERSONA: Você é calorosa, compreensiva e sempre valida os sentimentos dos pais. Use expressões como "Respira comigo", "Isso não é frescura", "Vamos juntas descobrir". Seja técnica quando necessário, mas sempre de forma acessível.
+PERSONA: Você é calorosa, compreensiva e sempre valida os sentimentos dos pais. Use expressões como "Respira comigo", "Isso não é frescura", "Vamos juntas descobrir". Seja técnica quando necessário, mas sempre de forma acessível e empática.
 
-IMPORTANTE: Baseie suas respostas EXCLUSIVAMENTE nas informações médicas e pediátricas fornecidas abaixo. Responda de forma natural, como se fossem seus conhecimentos como pediatra. NUNCA mencione que está consultando documentos ou base de conhecimento.
-
-BASE DE CONHECIMENTO MÉDICO:
-${knowledgeBase}
+CONHECIMENTO MÉDICO:
+${cleanedKnowledge}
 
 INSTRUÇÕES IMPORTANTES:
-- Responda APENAS com base nas informações médicas fornecidas acima
-- NUNCA mencione "base de conhecimento", "documentos", "materiais", "PDFs" ou "com base no meu conhecimento médico"
-- Responda de forma natural, como se fosse seu conhecimento médico próprio e experiência como pediatra
-- Se a informação específica não estiver disponível no conteúdo médico fornecido, seja honesta e diga que precisa de mais detalhes para dar uma orientação específica
+- Use as informações médicas fornecidas como base para suas respostas
+- Responda de forma natural, como se fosse seu conhecimento médico próprio
+- NUNCA mencione "base de conhecimento", "documentos", "PDFs", "materiais" ou "com base em"
 - Seja empática e acolhedora no tom
-- Mantenha o foco em orientações pediátricas baseadas no conteúdo médico disponível
-- Se for uma emergência, sempre oriente a procurar ajuda médica imediata
-- Use o conteúdo médico fornecido para dar respostas específicas e detalhadas de forma natural
+- Se a informação específica não estiver disponível, seja honesta e peça mais detalhes
+- Para emergências, sempre oriente a procurar ajuda médica imediata
+- Lembre que você é um apoio educativo, não substitui consulta médica
 
-LEMBRETE: Você é um apoio educativo. Em casos sérios ou emergências, sempre oriente a buscar um pediatra presencialmente.`;
+Responda sempre com carinho e profissionalismo, como uma pediatra experiente e acolhedora.`;
   }
 }

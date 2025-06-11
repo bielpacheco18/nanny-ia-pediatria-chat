@@ -41,7 +41,7 @@ export class OpenAIService {
       
       const messages: ChatMessage[] = [
         { role: 'system', content: systemPrompt },
-        ...conversationHistory.slice(-6), // Keep last 6 messages for context
+        ...conversationHistory.slice(-4), // Keep last 4 messages for context
         { role: 'user', content: userMessage }
       ];
 
@@ -53,10 +53,12 @@ export class OpenAIService {
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4o-mini',
           messages: messages,
           max_tokens: 800,
-          temperature: 0.7
+          temperature: 0.7,
+          top_p: 0.9,
+          frequency_penalty: 0.5
         })
       });
 
@@ -76,19 +78,30 @@ export class OpenAIService {
       const data = await response.json();
       console.log('OpenAI response received');
       
-      return data.choices?.[0]?.message?.content || 
-             this.responseGenerationService.generateKnowledgeBasedResponse(userMessage, knowledgeBase);
+      const aiResponse = data.choices?.[0]?.message?.content;
+      
+      // Se a resposta da OpenAI está vazia ou é muito genérica, usar fallback
+      if (!aiResponse || aiResponse.length < 50) {
+        console.log('OpenAI response too short, using knowledge-based fallback');
+        return this.responseGenerationService.generateKnowledgeBasedResponse(userMessage, knowledgeBase);
+      }
+      
+      return aiResponse;
              
     } catch (error) {
       console.error('Error in generateResponse:', error);
       
       // Fallback to knowledge-based response
-      const knowledgeBase = await this.knowledgeBaseService.getKnowledgeBase();
-      if (knowledgeBase) {
-        return this.responseGenerationService.generateKnowledgeBasedResponse(userMessage, knowledgeBase);
+      try {
+        const knowledgeBase = await this.knowledgeBaseService.getKnowledgeBase();
+        if (knowledgeBase) {
+          return this.responseGenerationService.generateKnowledgeBasedResponse(userMessage, knowledgeBase);
+        }
+      } catch (kbError) {
+        console.error('Error accessing knowledge base:', kbError);
       }
       
-      return 'Desculpe, ocorreu um erro. Tente novamente em alguns instantes.';
+      return 'Desculpe, ocorreu um erro temporário. Tente novamente em alguns instantes. Para questões urgentes, sempre procure seu pediatra. 💜';
     }
   }
 }
