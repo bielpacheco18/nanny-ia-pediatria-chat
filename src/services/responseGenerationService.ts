@@ -1,3 +1,4 @@
+
 export class ResponseGenerationService {
   generateKnowledgeBasedResponse(userMessage: string, knowledgeBase: string): string {
     const lowerMessage = userMessage.toLowerCase();
@@ -43,10 +44,19 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
       .replace(/Conteúdo extraído do arquivo.*?:\s*/g, '')
       .replace(/Este é um conteúdo simulado.*?\./g, '')
       .replace(/Em produção.*?\./g, '')
-      // Remove textos quebrados e mal formatados
-      .replace(/\d+\s+de\s+crianças\s+ao\s+ano,\s+estima-se\s+que\s+entre\s+\d+\./g, '')
-      .replace(/Os\s+níveis\s+mé\s+-\s+dios\s+estimados/g, 'Os níveis médios estimados')
+      // Remove textos quebrados e mal formatados mais agressivamente
+      .replace(/\d+\s+de\s+crianças\s+ao\s+ano,?\s*estima-se\s+que\s+entre\s+\d*\.?\d*%?\.?/gi, '')
+      .replace(/Os\s+níveis\s+mé\s*-?\s*dios\s+estimados\s+.*?(?=\.|$)/gi, '')
       .replace(/(\d+)º\s+dia/g, '$1° dia')
+      .replace(/\d+%?\s+de\s+crianças?\s+.*?(?=\.|$)/gi, '')
+      .replace(/com\s+redução\s+para\s+\d+%\s+de\s+crianças?\s+.*?(?=\.|$)/gi, '')
+      .replace(/se\s+mantiveram\s+no\s+\d+º\s+dia.*?(?=\.|$)/gi, '')
+      .replace(/níveis?\s+.*?estimados?\s+.*?(?=\.|$)/gi, '')
+      // Remove linhas muito curtas ou fragmentadas
+      .replace(/^\s*\d+\s*\.?\s*$/gm, '')
+      .replace(/^\s*[A-Za-z]{1,3}\s*\.?\s*$/gm, '')
+      // Remove espaços múltiplos
+      .replace(/\s+/g, ' ')
       .trim();
   }
 
@@ -91,7 +101,7 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
     keywords.forEach(keyword => {
       const matchingSentences = sentences.filter(sentence => {
         const sentenceLower = sentence.toLowerCase();
-        return sentenceLower.includes(keyword.toLowerCase()) && this.isCompleteSentence(sentence);
+        return sentenceLower.includes(keyword.toLowerCase()) && this.isValidSentence(sentence);
       });
       relevantSentences.push(...matchingSentences);
     });
@@ -101,7 +111,7 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
       const messageWords = originalMessage.toLowerCase().split(/\s+/).filter(word => word.length > 3);
       messageWords.forEach(word => {
         const matchingSentences = sentences.filter(sentence => {
-          return sentence.toLowerCase().includes(word) && this.isCompleteSentence(sentence);
+          return sentence.toLowerCase().includes(word) && this.isValidSentence(sentence);
         });
         relevantSentences.push(...matchingSentences);
       });
@@ -114,28 +124,27 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
     return text
       .split(/[.!?]+/)
       .map(sentence => sentence.trim())
-      .filter(sentence => 
-        sentence.length > 20 && 
-        sentence.length < 200 && 
-        !sentence.includes('000 de crianças') &&
-        !sentence.includes('níveis mé -') &&
-        this.hasValidStructure(sentence)
-      );
+      .filter(sentence => this.isValidSentence(sentence));
   }
 
-  private isCompleteSentence(sentence: string): boolean {
-    // Verifica se a frase está completa e faz sentido
-    return sentence.length > 15 && 
+  private isValidSentence(sentence: string): boolean {
+    // Verifica se a frase é válida e útil
+    return sentence.length > 20 && 
            sentence.length < 200 &&
            !sentence.includes('...') &&
-           !sentence.match(/\d+\s+de\s+\w+\s+ao\s+ano,\s+estima-se/) &&
+           !sentence.match(/\d+\s*%?\s+de\s+crianças?/i) &&
+           !sentence.match(/níveis?\s+.*?estimados?/i) &&
+           !sentence.match(/\d+º\s+dia.*?com\s+redução/i) &&
+           !sentence.match(/estima-se\s+que\s+entre/i) &&
+           !sentence.includes('mé -') &&
+           !sentence.includes('000 de') &&
            this.hasValidStructure(sentence);
   }
 
   private hasValidStructure(sentence: string): boolean {
-    // Verifica se a frase tem estrutura válida (sujeito + verbo ou informação útil)
-    const hasVerb = /\b(é|são|pode|deve|tem|têm|faz|fazem|está|estão|fica|ficam|acontece|ocorre|recomenda|indica)\b/i.test(sentence);
-    const hasUsefulInfo = /\b(bebê|criança|mês|meses|ano|anos|dia|dias|idade|peso|altura|temperatura|febre|sono|alimentação|leite|mama|fralda)\b/i.test(sentence);
+    // Verifica se a frase tem estrutura válida
+    const hasVerb = /\b(é|são|pode|deve|tem|têm|faz|fazem|está|estão|fica|ficam|acontece|ocorre|recomenda|indica|ajuda|causa|evita)\b/i.test(sentence);
+    const hasUsefulInfo = /\b(bebê|criança|mês|meses|ano|anos|dia|dias|idade|peso|altura|temperatura|febre|sono|alimentação|leite|mama|fralda|cuidado|tratamento|sintoma)\b/i.test(sentence);
     
     return hasVerb || hasUsefulInfo;
   }
@@ -158,7 +167,10 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
   }
 
   private findTopicInfo(knowledge: string, terms: string[]): string {
-    const sentences = knowledge.split(/[.!?]+/).filter(sentence => sentence.trim().length > 15);
+    const sentences = knowledge.split(/[.!?]+/)
+      .filter(sentence => sentence.trim().length > 15)
+      .filter(sentence => this.isValidSentence(sentence));
+      
     const topicSentences = sentences.filter(sentence => {
       const sentenceLower = sentence.toLowerCase();
       return terms.some(term => sentenceLower.includes(term));
@@ -170,16 +182,21 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
   private generateClearResponse(userMessage: string, relevantInfo: string[]): string {
     const cleanInfo = this.formatInformation(relevantInfo);
     
+    // Se não há informação útil após limpeza, usar resposta genérica
+    if (!cleanInfo || cleanInfo.length < 20) {
+      return this.generateHelpfulResponse(userMessage);
+    }
+    
     if (userMessage.toLowerCase().includes('febre')) {
       return `${cleanInfo}
 
-🌡️ **Importante**: Se a febre não baixar ou surgir outros sintomas, procure o pediatra. 💜`;
+🌡️ **Importante**: Se a febre não baixar ou surgir outros sintomas, procure o pediatra imediatamente. 💜`;
     }
 
     if (userMessage.toLowerCase().includes('amament') || userMessage.toLowerCase().includes('leite')) {
       return `${cleanInfo}
 
-🤱 **Lembre-se**: Cada bebê tem seu ritmo para mamar. Tenha paciência! 💜`;
+🤱 **Lembre-se**: Cada bebê tem seu ritmo. Tenha paciência! 💜`;
     }
 
     if (userMessage.toLowerCase().includes('sono') || userMessage.toLowerCase().includes('dormir')) {
@@ -191,7 +208,7 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
     if (userMessage.toLowerCase().includes('choro') || userMessage.toLowerCase().includes('cólica')) {
       return `${cleanInfo}
 
-👶 **Calma**: O choro é normal - é como o bebê "fala" com você! 💜`;
+👶 **Calma**: O choro é normal - é como o bebê se comunica! 💜`;
     }
 
     return `${cleanInfo}
@@ -200,18 +217,50 @@ Pode me perguntar sobre alimentação, sono, cuidados ou qualquer dúvida! 💜`
   }
 
   private formatInformation(info: string[]): string {
-    return info
+    const formatted = info
+      .map(text => this.simplifyText(text))
+      .filter(text => text && text.length > 10)
       .join('. ')
       .replace(/\s+/g, ' ')
       .replace(/\.\s*\./g, '.')
       .trim();
+      
+    return formatted;
+  }
+
+  private simplifyText(text: string): string {
+    return text
+      .replace(/\b(administrar|prescrever|indicado|recomendado)\b/gi, 'dar')
+      .replace(/\b(temperatura corporal)\b/gi, 'temperatura')
+      .replace(/\b(evacuação|defecação)\b/gi, 'cocô')
+      .replace(/\b(micção)\b/gi, 'xixi')
+      .replace(/\b(aleitamento materno)\b/gi, 'amamentação')
+      .replace(/\b(lactente|neonato)\b/gi, 'bebê')
+      .replace(/\b(cefálico)\b/gi, 'da cabeça')
+      .replace(/\b(abdominal)\b/gi, 'da barriga')
+      .replace(/\b(dermatológico)\b/gi, 'da pele')
+      .replace(/\b(respiratório)\b/gi, 'da respiração')
+      .replace(/\b(gastrointestinal)\b/gi, 'do estômago')
+      .replace(/\b(neurológico)\b/gi, 'do desenvolvimento')
+      // Remove estatísticas confusas
+      .replace(/\d+\s*%?\s+de\s+crianças?\s+.*?(?=\.|$)/gi, '')
+      .replace(/níveis?\s+.*?estimados?\s+.*?(?=\.|$)/gi, '')
+      .replace(/\d+º\s+dia.*?(?=\.|$)/gi, '')
+      .replace(/com\s+redução.*?(?=\.|$)/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private generateQuickResponse(userMessage: string, info: string): string {
-    const simplified = this.simplifyInfo(info);
+    const simplified = this.simplifyText(info);
+    
+    if (!simplified || simplified.length < 20) {
+      return this.generateHelpfulResponse(userMessage);
+    }
+    
     return `${simplified}
 
-💡 **Quer mais detalhes?** Me conte mais sobre sua situação! 💜`;
+💡 **Quer mais detalhes?** Me conte mais sobre sua situação específica! 💜`;
   }
 
   private generateHelpfulResponse(userMessage: string): string {
@@ -227,27 +276,6 @@ Posso te ajudar com:
 **Reformule sua pergunta** de forma mais específica. Por exemplo: "Como tratar assadura?" ou "Bebê não dorme, o que fazer?"
 
 Estou aqui para te apoiar! 💜`;
-  }
-
-  private simplifyInfo(text: string): string {
-    return text
-      .replace(/\b(administrar|prescrever|indicado|recomendado)\b/gi, 'dar')
-      .replace(/\b(temperatura corporal)\b/gi, 'temperatura')
-      .replace(/\b(evacuação|defecação)\b/gi, 'cocô')
-      .replace(/\b(micção)\b/gi, 'xixi')
-      .replace(/\b(aleitamento materno)\b/gi, 'amamentação')
-      .replace(/\b(lactente|neonato)\b/gi, 'bebê')
-      .replace(/\b(cefálico)\b/gi, 'da cabeça')
-      .replace(/\b(abdominal)\b/gi, 'da barriga')
-      .replace(/\b(dermatológico)\b/gi, 'da pele')
-      .replace(/\b(respiratório)\b/gi, 'da respiração')
-      .replace(/\b(gastrointestinal)\b/gi, 'do estômago')
-      .replace(/\b(neurológico)\b/gi, 'do desenvolvimento')
-      // Remove textos mal formatados
-      .replace(/\d+\s+de\s+crianças\s+ao\s+ano.*?%/g, '')
-      .replace(/Os\s+níveis\s+mé\s+-\s+dios/g, 'Os níveis médios')
-      .replace(/\s+/g, ' ')
-      .trim();
   }
 
   createSystemPrompt(knowledgeBase: string): string {
@@ -268,6 +296,8 @@ REGRAS IMPORTANTES:
 - NUNCA mencione "base de conhecimento" ou "documentos"
 - Para emergências, sempre oriente procurar ajuda médica
 - Inclua dicas práticas quando possível
+- IGNORE estatísticas confusas ou incompletas
+- NUNCA use informações truncadas ou mal formatadas
 
 EXEMPLOS de linguagem simples:
 - "temperatura" em vez de "temperatura corporal"
