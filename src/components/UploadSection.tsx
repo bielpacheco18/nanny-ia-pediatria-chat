@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react"; // Added useCallback
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,12 +22,7 @@ const UploadSection = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Carregar arquivos do Supabase
-  useEffect(() => {
-    loadFilesFromSupabase();
-  }, []);
-
-  const loadFilesFromSupabase = async () => {
+  const loadFilesFromSupabase = useCallback(async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -43,7 +38,6 @@ const UploadSection = () => {
           variant: "destructive",
         });
       } else {
-        // Properly type the status field when mapping from Supabase
         const typedFiles: UploadedFile[] = (data || []).map(file => ({
           ...file,
           status: file.status as 'pending' | 'processed' | 'error'
@@ -55,7 +49,12 @@ const UploadSection = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]); // Added toast to useCallback dependencies
+
+  // Carregar arquivos do Supabase
+  useEffect(() => {
+    loadFilesFromSupabase();
+  }, [loadFilesFromSupabase]); // Added loadFilesFromSupabase to useEffect dependencies
 
   const formatFileSize = (bytes: number | null) => {
     if (!bytes || bytes === 0) return 'Tamanho não disponível';

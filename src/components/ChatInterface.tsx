@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react"; // Added useMemo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -30,7 +30,7 @@ const ChatInterface = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const openaiService = new OpenAIService();
+  const openaiService = useMemo(() => new OpenAIService(), []); // Memoized openaiService
   const isMobile = useIsMobile();
 
   // Load API key and conversations on component mount
@@ -43,7 +43,7 @@ const ChatInterface = () => {
     
     const loadedConversations = ChatHistoryService.getConversations();
     setConversations(loadedConversations);
-  }, []);
+  }, [openaiService]);
 
   // Save current conversation whenever messages change
   useEffect(() => {

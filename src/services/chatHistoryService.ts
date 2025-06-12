@@ -1,4 +1,3 @@
-
 export interface Conversation {
   id: string;
   title: string;
@@ -12,6 +11,21 @@ export interface Conversation {
   updatedAt: Date;
 }
 
+interface StoredMessage {
+  id: string;
+  content: string;
+  isUser: boolean;
+  timestamp: string;
+}
+
+interface StoredConversation {
+  id: string;
+  title: string;
+  messages: StoredMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export class ChatHistoryService {
   private static readonly STORAGE_KEY = 'chat_conversations';
 
@@ -20,12 +34,12 @@ export class ChatHistoryService {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (!stored) return [];
       
-      const conversations = JSON.parse(stored);
-      return conversations.map((conv: any) => ({
+      const storedConversations = JSON.parse(stored) as StoredConversation[];
+      return storedConversations.map((conv: StoredConversation) => ({
         ...conv,
         createdAt: new Date(conv.createdAt),
         updatedAt: new Date(conv.updatedAt),
-        messages: conv.messages.map((msg: any) => ({
+        messages: conv.messages.map((msg: StoredMessage) => ({
           ...msg,
           timestamp: new Date(msg.timestamp)
         }))
@@ -68,7 +82,7 @@ export class ChatHistoryService {
   static clearAllConversations(): void {
     try {
       localStorage.removeItem(this.STORAGE_KEY);
-    } catch (error) {
+    } catch (error) { // Added missing {
       console.error('Erro ao limpar conversas:', error);
     }
   }
