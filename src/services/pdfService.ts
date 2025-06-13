@@ -1,9 +1,15 @@
-
 export interface ProcessedPDF {
   id: string;
   name: string;
   content: string;
   uploadDate: Date;
+}
+
+interface StoredProcessedPDF {
+  id: string;
+  name: string;
+  content: string;
+  uploadDate: string;
 }
 
 export class PDFService {
@@ -26,9 +32,9 @@ export class PDFService {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed = JSON.parse(stored) as StoredProcessedPDF[];
         // Converter strings de data de volta para objetos Date
-        this.processedPDFs = parsed.map((pdf: any) => ({
+        this.processedPDFs = parsed.map((pdf: StoredProcessedPDF) => ({
           ...pdf,
           uploadDate: new Date(pdf.uploadDate)
         }));
