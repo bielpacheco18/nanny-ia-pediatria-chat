@@ -30,9 +30,24 @@ export class OpenAIService {
         return 'Ainda não temos documentos pediátricos na base de conhecimento. Por favor, adicione alguns materiais na seção "Base de Conhecimento" para que eu possa te ajudar melhor. Para questões urgentes, sempre consulte seu pediatra. 💜';
       }
 
-      // If no API key is set, use knowledge-based response
+      // If no API key is set, call the local backend
       if (!this.apiKey) {
-        console.log('No API key set, using knowledge-based response');
+        console.log('No API key set, using local backend');
+        try {
+          const resp = await fetch('http://localhost:8000/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userMessage })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            return data.response as string;
+          }
+          console.error('Local backend error:', resp.status);
+        } catch (err) {
+          console.error('Error calling local backend:', err);
+        }
+
         return this.responseGenerationService.generateKnowledgeBasedResponse(userMessage, knowledgeBase);
       }
 

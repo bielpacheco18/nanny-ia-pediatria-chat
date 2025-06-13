@@ -60,6 +60,24 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Backend setup
+
+The `backend` folder contains a small FastAPI application that lets you upload
+PDFs and chat using a local language model. To run it locally:
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn backend.main:app --reload
+```
+
+By default the server expects a GPT4All model in `models/ggml-gpt4all-j.bin` or
+you can provide a different path using the `LOCAL_MODEL_PATH` environment
+variable. The server exposes two endpoints:
+
+- `POST /upload` – send a PDF file and it will be indexed locally.
+- `POST /chat` – send `{ "message": "..." }` to receive a text reply.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/f3be892c-1c88-496c-9be0-21f69de56308) and click on Share -> Publish.
